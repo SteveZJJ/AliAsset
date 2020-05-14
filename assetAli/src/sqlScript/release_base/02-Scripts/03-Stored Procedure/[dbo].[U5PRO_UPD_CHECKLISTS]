@@ -1,0 +1,177 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_UPD_CHECKLISTS]
+    @serialNo NVARCHAR(30),
+    @receiptNo NVARCHAR(30),
+    @actNum NVARCHAR(30),
+    @assetCode NVARCHAR(30),
+    @propertyType NVARCHAR(30),
+    @checkValue NVARCHAR(256),
+    @remark NVARCHAR(30),
+    @checked NVARCHAR(30),
+    @checkedYes      NVARCHAR (30),
+    @checkedNo NVARCHAR(30),
+    @checkResult NVARCHAR(30),
+    @workNo NVARCHAR(30),
+    @language NVARCHAR(30)
+WITH EXEC AS CALLER
+AS
+DECLARE @flag NVARCHAR(1) = 'S',
+        @message NVARCHAR(2000),
+        @ncount INT,
+        @chkitem NVARCHAR(30), --检查项ID
+        @chkdesc NVARCHAR(80), --检查项对应的描述
+        @chkObj NVARCHAR(30),  --检查项对应的大阿里编号
+        @ackcode NVARCHAR(30);
+
+BEGIN
+    BEGIN TRY
+        SET @checked = '+'; --Added by Joey Wang on 28 Nov 2018
+        SELECT @ncount = COUNT(1)
+        FROM R5ACTCHECKLISTS
+        WHERE ACK_SEQUENCE = @serialNo
+              AND ACK_EVENT = @receiptNo
+              AND ACK_OBJECT = @assetCode
+              AND ACK_ACT = @actNum;
+
+        IF @ncount = 0
+        BEGIN
+            SELECT 'E' AS flag,
+                   N'检查项不存在' AS message;
+
+            RETURN;
+        END;
+
+        ---  when the pointtype equals 'GENNERAL',update all checklists without check objcode.
+        SELECT @ncount = COUNT(1)
+        FROM R5ACTCHECKLISTS
+        WHERE ACK_SEQUENCE = @serialNo
+              AND ACK_EVENT = @receiptNo
+              AND ACK_OBJECT = @assetCode
+              AND ACK_ACT = @actNum
+              AND ACK_POINTTYPE = 'GENERAL';
+
+        IF @ncount = 0
+        BEGIN
+
+            UPDATE R5ACTCHECKLISTS
+            SET ACK_NOTES = @checkValue,
+                                    --ACK_VALUE = @CHECKVALUE,
+                                    --ACK_NOTES = @REMARK,
+                                    --Below added by Joey Wang on 28 Nov 2018
+                ACK_UPDATED = GETDATE(),
+                ACK_UPDATEDBY = ' R5',
+                ACK_COMPLETED = CASE WHEN ACK_REQUIREDTOCLOSE = 'YES' THEN @checked ELSE ACK_COMPLETED
+                                END --Added by Joey Wang on 28 Nov 2018
+            -- ACK_YES = @CHECKEDYES,
+            -- ACK_NO = @CHECKEDNO,
+            --ACK_FINDING = @CHECKRESULT
+            WHERE ACK_SEQUENCE = @serialNo
+                  AND ACK_EVENT = @receiptNo
+                  AND ACK_OBJECT = @assetCode
+                  AND ACK_ACT = @actNum;
+        END;
+        ELSE
+        BEGIN
+            --            ---增加唯一性校验
+            --            ---增加SN校验,有线MAC,无线MAC,IMES 唯一性校验
+            --                        SELECT @NCOUNT = COUNT (1)
+            --                          FROM R5ACTCHECKLISTS
+            --                         WHERE     ACK_SEQUENCE = @SERIALNO
+            --                               AND ACK_EVENT = @RECEIPTNO
+            --                               AND ACK_ACT = @ACTNUM
+            --                               AND ACK_TASKCHECKLISTCODE IN
+            --                                      (SELECT CPM_CHKITEM
+            --                                         FROM U5CHKPROPMAPPING
+            --                                        WHERE    CPM_PROPERTY IN
+            --                                                    ('L-MAC', 'W-MAC', 'IMEI')
+            --                                              OR CPM_OBJFIELD IN ('OBJ_SERIALNO'));
+            --
+            IF @ncount = 1
+               AND @checkValue <> N''
+            BEGIN
+                SELECT @ackcode = ACK_CODE,
+                       @chkObj = ACK_OBJECT,
+                       @chkitem = ISNULL(CPM_PROPERTY, CPM_OBJFIELD),
+                       @chkdesc = CPM_CHKDESC
+                FROM R5ACTCHECKLISTS,
+                     U5CHKPROPMAPPING
+                WHERE ACK_SEQUENCE = @serialNo
+                      AND ACK_EVENT = @receiptNo
+                      AND ACK_ACT = @actNum
+                      AND ACK_TASKCHECKLISTCODE = CPM_CHKITEM
+                      AND (   CPM_PROPERTY IN ( 'L-MAC', 'W-MAC', 'IMEI' )
+                              OR CPM_OBJFIELD IN ( 'OBJ_SERIALNO' ));
+
+                SELECT @ncount = COUNT(1)
+                FROM R5ACTCHECKLISTS
+                WHERE ACK_CODE <> @ackcode
+                      AND ACK_EVENT NOT IN (   SELECT EVT_CODE
+                                               FROM R5EVENTS
+                                               WHERE EVT_JOBTYPE IN ( '10YS', '100YS' )
+                                                     AND EVT_STATUS IN ( 'YS10', 'YS20', 'YS50' )
+                                                     AND EVT_PARENT IS NULL )
+                      AND ACK_NOTES = @checkValue
+                      AND ACK_TASKCHECKLISTCODE IN (   SELECT CPM_CHKITEM
+                                                       FROM U5CHKPROPMAPPING
+                                                       WHERE ISNULL(CPM_PROPERTY, CPM_OBJFIELD) = @chkitem );
+
+                IF @ncount > 0
+                BEGIN
+                    SELECT TOP 1
+                           'E' AS flag,
+                           (CASE @language WHEN 'ZH' THEN
+                                               N'资产信息重复提醒：
+                                 以下资产信息已存在，请不要重复录入！
+                                 实物资产编号为：' + @chkObj + N'的验收项:' + @chkdesc + N': "' + @checkValue + N'" 信息与实物资产编号为:'
+                                               + ACK_OBJECT + N'的重复！' ELSE
+                                                                          'Duplicated asset information reminder:
+Following assets information have already existed, please do not reuse!' + @chkdesc + ' ' + @checkValue
+                                                                          + ' of physical asset number ' + @chkObj
+                                                                          + ' is duplicated with ' + @chkdesc
+                                                                          + ' of the physical asset number ' + ACK_OBJECT
+                            END) AS message
+                    FROM R5ACTCHECKLISTS
+                    WHERE ACK_CODE <> @ackcode
+                          AND ACK_NOTES = @checkValue
+                          AND ACK_TASKCHECKLISTCODE IN (   SELECT CPM_CHKITEM
+                                                           FROM U5CHKPROPMAPPING
+                                                           WHERE ISNULL(CPM_PROPERTY, CPM_OBJFIELD) = @chkitem );
+
+                    RETURN;
+                END;
+            END;
+
+            UPDATE R5ACTCHECKLISTS
+            SET ACK_NOTES = @checkValue,
+                                    --ACK_VALUE = @CHECKVALUE,
+                                    --ACK_NOTES = @REMARK,
+                                    --Below added by Joey Wang on 28 Nov 2018
+                ACK_UPDATED = GETDATE(),
+                ACK_UPDATEDBY = ' R5',
+                ACK_COMPLETED = CASE WHEN ACK_REQUIREDTOCLOSE = 'YES' THEN @checked ELSE ACK_COMPLETED
+                                END --Added by Joey Wang on 28 Nov 2018
+            -- ACK_YES = @CHECKEDYES,
+            -- ACK_NO = @CHECKEDNO,
+            --ACK_FINDING = @CHECKRESULT
+            WHERE ACK_SEQUENCE = @serialNo
+                  AND ACK_EVENT = @receiptNo
+                  AND ACK_OBJECT = @assetCode
+                  AND ACK_ACT = @actNum;
+        END;
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+    SELECT @flag AS flag,
+           @message AS message;
+END;
+
+GO

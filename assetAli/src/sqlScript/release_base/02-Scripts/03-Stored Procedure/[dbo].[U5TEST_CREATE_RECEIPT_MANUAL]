@@ -1,0 +1,37 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE dbo.U5TEST_CREATE_RECEIPT_MANUAL
+    /**************************************
+*Created by Joey Wang
+******** On 18 Dec 2018 
+*********to test the createrecvline sp 
+************************************/
+    @ouCode NVARCHAR(80),   --OU
+    @corp NVARCHAR(15),     --Organization
+    @partCode NVARCHAR(80), --Part
+    @number INT,            --Quantity
+    @workNo NVARCHAR(30)    --Receiver Employee Code
+AS
+DECLARE @flag NVARCHAR(1),
+        @message NVARCHAR(2000),
+        @receiptNo NVARCHAR(30),
+        @org NVARCHAR(15);
+
+BEGIN
+    EXEC dbo.U5PRO_CREATE_RECEIPT_MANUAL @ouCode,
+                                         @corp,
+                                         @partCode,
+                                         @number,
+                                         @workNo,
+                                         @flag,
+                                         @message,
+                                         @receiptNo,
+                                         @org;
+END;
+
+GO

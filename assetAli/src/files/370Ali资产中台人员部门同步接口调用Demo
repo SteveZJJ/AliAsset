@@ -1,0 +1,163 @@
+人员部门同步接口及实例
+
+1. 人员增量同步
+	URL：http://localhost:9090/alieam/api/createPersonInfo
+
+	传入Json：
+		{
+            "perCode": "TEST17",
+            "perDesc": "TEST17",
+            "perMrc": "TEST7"
+        }
+    返回值：
+    	{
+		    "flag": "S",
+		    "message": null,
+		    "data": "TEST17"
+		}
+
+	人员实体类：
+		public class R5Personnel {
+
+		    @JsonProperty(value = "perCode")
+		    private String per_code;
+		    @JsonProperty(value = "perDesc")
+		    private String per_desc;
+		    @JsonProperty(value = "perMrc")
+		    private String per_mrc;
+		}
+
+
+
+
+2.人员全量更新
+	URL：http://localhost:9090/alieam/api/newPersonInfo
+
+	传入Json：
+		{
+		    "personList": [
+		        {
+		            "perCode": "TEST17",
+		            "perDesc": "TEST17",
+		            "perMrc": "TEST7"
+		        },
+		        {
+		            "perCode": "TEST18",
+		            "perDesc": "TEST8",
+		            "perMrc": "TEST8"
+		        },
+		        {
+		            "perCode": "TEST9",
+		            "perDesc": "TEST9",
+		            "perMrc": "TEST9"
+		        },
+		        {
+		            "perCode": "TEST10",
+		            "perDesc": "TEST10",
+		            "perMrc": "TEST10"
+		        }
+		    ]
+		}
+
+	返回值：
+		{
+		    "flag": "S",
+		    "message": null,
+		    "data": 5
+		}
+
+	实体类：
+		public class R5PersonnelList {
+
+		    private List<R5Personnel> personList;
+
+		}
+
+
+
+3. 部门增量同步
+	URL： http://localhost:9090/alieam/api/createDepartmentInfo
+	传入Json：
+		{
+		    "depCode": "TEST25",
+		    "depDesc": "TEST25",
+		    "depClass": "IT",
+		    "depfulldesc": "TEST25TEST",
+		    "depParent":"TEST",
+		    "depNotused":"-",
+		    "depDescEn":"TEST25TEST"
+		}
+	返回值：
+		{
+		    "flag": "S",
+		    "message": null,
+		    "data": "TEST25"
+		}
+	实体类：
+		public class R5Mrcs {
+
+		    @JsonProperty(value = "depCode")
+		    private String mrc_code;
+		    @JsonProperty(value = "depDesc")
+		    private String mrc_desc;
+		    @JsonProperty(value = "depClass")
+		    private String mrc_class;
+		    @JsonProperty(value = "depParent")
+		    private String mrc_parent;
+		    @JsonProperty(value = "depFullDesc")
+		    private String mrc_fulldesc;
+		    @JsonProperty(value = "depNotused")
+		    private String mrc_notused;
+		    @JsonProperty(value = "depDescEn")
+		    private String mrc_descen;
+		}
+
+
+4. 部门全量更新
+	URL： http://localhost:9090/alieam/api/newDepartmentInfo
+	传入Json：
+		{
+		    "mrcList": [
+		        {
+				    "depCode": "TEST21",
+				    "depDesc": "TEST21",
+				    "depClass": "IT",
+				    "depfulldesc": "TEST21TEST",
+				    "depParent":"TEST",
+				    "depNotused":"-",
+				    "depDescEn":"TEST21TEST"
+				},
+		        {
+				    "depCode": "TEST22",
+				    "depDesc": "TEST22",
+				    "depClass": "IT",
+				    "depfulldesc": "TEST22TEST",
+				    "depParent":"TEST",
+				    "depNotused":"-",
+				    "depDescEn":"TEST22TEST"
+				},
+		        {
+				    "depCode": "TEST23",
+				    "depDesc": "TEST23",
+				    "depClass": "IT",
+				    "depfulldesc": "TEST23TEST",
+				    "depParent":"TEST",
+				    "depNotused":"-",
+				    "depDescEn":"TEST23TEST"
+				}
+		        
+		    ]
+		}
+	返回值：
+		{
+		    "flag": "S",
+		    "message": null,
+		    "data": 3
+		}
+
+	实体类：
+		public class R5MrcList {
+
+		    private List<R5Mrcs> mrcList;
+
+		}

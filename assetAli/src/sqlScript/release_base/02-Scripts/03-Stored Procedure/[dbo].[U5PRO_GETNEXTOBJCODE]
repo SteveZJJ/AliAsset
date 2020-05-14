@@ -1,0 +1,39 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_GETNEXTOBJCODE]
+   @objCode NVARCHAR (30) OUTPUT
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+declare @objId nvarchar(30);
+BEGIN
+   SELECT @ncount = count (1) FROM u5_objects_notused;
+
+   IF @ncount > 0
+      BEGIN
+         SELECT TOP 1
+                @objId = obj_code
+         FROM U5_OBJECTS_NOTUSED;
+
+         DELETE u5_objects_notused
+          WHERE obj_code = @objId;
+ 
+      END
+   ELSE
+      BEGIN
+         EXEC P_GETNEXTID 'U5OBJECTTDN', @objId OUTPUT;
+         SET @objId =
+                  'TDN'
+                + RIGHT ('000000000000' + CAST (@objId AS VARCHAR (12)),
+                         12); 
+      END;
+      set @objCode=@objId;
+END
+
+GO

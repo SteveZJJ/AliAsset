@@ -1,0 +1,55 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+ALTER PROCEDURE [dbo].[U5RAE]
+   @sErmsource NVARCHAR (12), @sErmErrorMsg NVARCHAR (200)
+AS
+/**
+ Create by Jason.Zhao @2018-03-29
+ remark:
+ @sErmsource--the ERT_CODE in table R5ERRTEXTS
+ @sErmErrorMsg --the alert Message Defined
+
+
+*/
+SET  NOCOUNT ON;
+DECLARE @sErrcode   NVARCHAR (12);                 --r5errsource.ers_code%TYPE
+DECLARE @sOracode   NVARCHAR (300);
+DECLARE @nCount   INT;
+DECLARE @sPaddedCode   NVARCHAR (12);
+
+SET @sOracode = '';
+
+IF @sErmsource IS NULL
+   SET @sErmsource = 'NA';
+
+IF @sErmsource IS NOT NULL
+   BEGIN
+      SELECT @nCount = COUNT (*)
+      FROM dbo.R5ERRTEXTS m
+      WHERE m.ERT_CODE = @sErmsource;
+
+      IF @nCount > 0
+         SELECT @sOracode =
+                     @sErmsource
+                   + [dbo].[BAIMERROR_GETERRORMESSAGE] (@sErmsource);
+   END;
+
+IF (@sOracode <> '')
+   SET @sOracode = 'FIXEDBEGIN' + @sOracode + @sErmErrorMsg + N'！FIXEDEND';
+ELSE
+   SET @sOracode = N'FIXEDBEGIN 提示!' + @sErmErrorMsg + N'！FIXEDEND';
+
+SET @sOracode =
+       REPLACE (REPLACE (REPLACE (@sOracode, ':', N'：'), '-', ''),
+                '!',
+                N'！');
+SET @sOracode =
+       REPLACE (REPLACE (REPLACE (@sOracode, '.', N'。'), '-', ''),
+                '!',
+                N'！');
+RAISERROR (@sOracode, 16, 1);
+GO

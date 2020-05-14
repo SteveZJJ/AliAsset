@@ -1,0 +1,1316 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eam.mybatis.dao.QueryCodeDescMapper">
+    <select id="getAssetCate" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+
+        SELECT * FROM (
+        SELECT PAR_CODE AS code ,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'PART',
+        PAR_CODE,
+        '',
+        '') AS value
+        FROM R5PARTS
+        WHERE PAR_ORG IN ('*', #{corp}) AND PAR_BYASSET = '+' AND PAR_NOTUSED = '-'
+        AND EXISTS(SELECT
+        1
+        FROM
+        U5PARTCATEGORY
+        WHERE
+        LMD_PARTCODE = PAR_CODE AND
+        LMD_FINANCESYSTEM = #{corp}
+        AND LMD_NOTUSED IN ('-', NULL))
+        )
+        k
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getUserDefinedField" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT * FROM (
+        SELECT udL_code as code,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'UDLV',
+        udl_fieLd + udL_code,
+        UDL_RENTITY,
+        UDL_RENTITY) as value
+        FROM R5USERDEFINEDFIELDLOVVALS
+        WHERE
+        udl_rentity=#{entity} AND
+        udl_field = #{field} AND ISNULL (UDL_NOTUSED, '-') = '-'
+        ) K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getLocation" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT TOP 20 * FROM (
+        SELECT OBJ_CODE code,
+        DBO.F_U5GET_OBJFULLDESC (OBJ_CODE,#{language})
+        as value,
+        OBJ_CLASS class
+        FROM R5OBJECTS A
+        WHERE OBJ_OBTYPE = 'L'
+        AND ISNULL (OBJ_NOTUSED, '-') = '-'
+        AND A.OBJ_ORG IN ('*', #{corp})
+        AND NOT EXISTS
+        (SELECT 1
+        FROM R5OBJECTS B
+        WHERE B.OBJ_PARENT = A.OBJ_CODE
+        AND B.OBJ_OBTYPE = 'L'
+        AND ISNULL (B.OBJ_NOTUSED, '-') = '-')
+
+        <!-- 增加与Oracle Mapping判断
+        <if test=" corp=='ALIO'">-->
+        <if test="noCheckFA==null">
+            AND EXISTS(SELECT
+            1
+            FROM
+            U5LOCATIONMAPPING
+            WHERE
+            LOM_EAMCODE = OBJ_CODE AND
+            LOM_3RDSYSTEM = #{corp} AND
+            LOM_NOTUSED IN ('-',NULL))
+        </if>
+        <!--</if>-->
+        <if test=" locationClass!=null and locationClass !='' ">
+            and OBJ_CLASS = #{locationClass}
+        </if>
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and DBO.F_U5GET_OBJFULLDESC (OBJ_CODE,#{language}) like '%'+#{searchDesc}+'%'
+        </if>
+        ) K
+    </select>
+    <select id="getCurrency" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT * FROM (
+        SELECT CUR_CODE as code,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'CURR',
+        CUR_CODE,
+        '',
+        '') as value
+        FROM R5CURRENCIES
+        WHERE ISNULL (CUR_NOTUSED, '-') = '-' AND CUR_CODE NOT IN ('%', '*')
+        )
+        K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getPropertyValuesByAssetCode" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT DBO.R5O7_O7GET_DESC(#{language},
+                                   'PROM',
+                                   PRV_PROPERTY,
+                                   '',
+                                   '')
+                code,
+               CASE pro_type
+                   WHEN 'CHAR'
+                         THEN prv_value
+                   WHEN 'CODE'
+                         THEN dbo.r5o7_o7get_desc(#{language},
+                                                  'PROM',
+                                                  'CODE#' + prv_value,
+                                                  '',
+                                                  '')
+                   WHEN 'ENTITY'
+                         THEN dbo.r5o7_o7get_desc(#{language},
+                                                  pro_rentity,
+                                                  prv_value,
+                                                  '',
+                                                  '')
+                   WHEN 'NUMBER'
+                         THEN CONVERT(NVARCHAR(80), prv_nvalue)
+                   WHEN 'DATE'
+                         THEN CONVERT(NVARCHAR(100), prv_dvalue, 23)
+                   WHEN 'DATI'
+                         THEN CONVERT(NVARCHAR(100), prv_dvalue, 120)
+                       END
+                Value
+        FROM r5propertyvalues
+                 JOIN r5objects ON PRV_CODE = obj_code + '#' + obj_org
+                                       AND obj_code = #{assetCode}
+                 JOIN r5properties ON prv_property = pro_code
+        WHERE prv_rentity = 'OBJ'
+    </select>
+    <select id="getBrandsByPart" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT * FROM (
+        SELECT MFG_CODE AS CODE,
+        DBO.R5O7_O7GET_DESC(#{language}, 'MANU', MFG_CODE, '', '') AS VALUE
+        FROM R5MANUFACTURERS K
+        WHERE EXISTS
+        (SELECT 1
+        FROM U5MODELS
+        WHERE MOD_BRAND = K.MFG_CODE
+        AND ISNULL (MOD_NOTUSED, '-') = '-'
+        AND MOD_PART = #{partCode})
+        )
+        K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+
+    </select>
+    <select id="getModelsByBrand" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT * FROM (
+        SELECT
+        MOD_CODE AS CODE,
+        DBO.R5O7_O7GET_DESC(#{language}, '$MOD', MOD_CODE+'#'+MOD_BRAND+'#'+MOD_PART, '', '') AS VALUE
+        FROM U5MODELS
+        WHERE MOD_PART = #{partCode}
+        AND MOD_BRAND = #{brand}
+        AND ISNULL (MOD_NOTUSED, '-') = '-')
+        K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getEvtCodeByMap" parameterType="map" resultType="String">
+        select top 1 evt_code from r5events where 1=1
+        <if test=" evt_udfchar01 != null and evt_udfchar01 !='' ">
+            and evt_udfchar01 =#{evt_udfchar01}
+        </if>
+        <if test=" evt_jobtype!=null and evt_jobtype !='' ">
+            and evt_jobtype =#{evt_jobtype}
+        </if>
+
+    </select>
+    <select id="checkPartsExists" parameterType="String" resultType="Integer">
+        select count(1)
+        from r5parts
+        where isnull(par_notused, '-') = '-'
+          and par_code = #{partCode}
+    </select>
+
+    <select id="getDrilldownLocation" parameterType="map" resultType="com.eam.mybatis.model.R5Locations">
+        <!--SELECT TOP 20 * FROM (-->
+        SELECT OBJ_CODE locationCode,
+        DBO.F_U5GET_OBJFULLDESC(obj_code,#{language})  as locationDesc,
+        OBJ_CLASS as locationClass
+        FROM R5OBJECTS A
+        WHERE OBJ_OBTYPE = 'L'
+        AND ISNULL (OBJ_NOTUSED, '-') = '-'
+        AND A.OBJ_ORG IN ('*', #{corp})
+        <if test=" obj_class!=null and obj_class !='' ">
+            and obj_class = #{obj_class}
+        </if>
+        <if test=" obj_parent!=null and obj_parent !='' ">
+            and obj_parent = #{obj_parent}
+        </if>
+        <if test=" obj_class=='CITY' ">
+            and EXISTS(
+            SELECT
+            1
+            FROM
+            R5STORES
+            WHERE
+            STR_ORG =#{corp} AND
+            ISNULL(STR_NOTUSED,'-') = '-' AND
+            (str_udfchar01 IN (SELECT
+            obj_code
+            FROM
+            r5objects
+            WHERE
+            obj_obtype = 'L' and
+            isnull(obj_notused,'-') = '-' and
+            obj_parent = A.obj_code)
+            OR
+            str_udfchar01 IN (SELECT
+            obj_code
+            FROM
+            r5objects
+            WHERE
+            obj_obtype = 'L' and
+            isnull(obj_notused,'-') = '-' and
+            obj_parent IN (SELECT OBJ_CODE FROM R5OBJECTS WHERE obj_obtype = 'L' and obj_parent = A.obj_code))))
+        </if>
+        <if test=" obj_class=='PARK' ">
+            and EXISTS
+            (SELECT 1
+               FROM R5STORES
+              WHERE STR_ORG = #{corp} and
+                    ISNULL(STR_NOTUSED,'-') = '-' AND
+                    (str_udfchar01 in (select obj_code from r5objects where obj_obtype = 'L' and obj_parent = A.obj_code and isnull(obj_notused,'-') = '-' ) or str_udfchar01 = A.obj_code))
+        </if>
+        <if test=" obj_class=='SPOT' ">
+            and EXISTS (SELECT 1 FROM R5STORES WHERE STR_ORG = #{corp} and ISNULL(STR_NOTUSED,'-') = '-' AND str_udfchar01 = A.obj_code)
+        </if>
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and DBO.R5O7_O7GET_DESC (#{language},
+            'OBJ',
+            OBJ_CODE,
+            '',
+            '') like '%'+#{searchDesc}+'%'
+        </if>
+        <!--) K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.locationDesc like '%'+#{searchDesc}+'%'
+        </if> -->
+    </select>
+    <select id="getBorrowType" parameterType="map" resultType="com.eam.mybatis.model.BorrowType">
+        SELECT TOP 20 * FROM (
+        SELECT BTP_CODE borrowType,
+        (CASE #{language}
+        WHEN 'ZH' THEN DESCRIPTION
+        ELSE BTP_DESC
+        END) borrowDesc,
+        BTP_DURATION as borrowDuration
+        FROM U5BORROWTYPES
+        where ISNULL (BTP_NOTUSED, '-') = '-'
+        ) K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.borrowDesc like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getAvailableAssets" parameterType="map" resultType="com.eam.mybatis.model.PickupOrReturnAsset">
+        WITH OBJECTSDETAIL
+        AS (SELECT K.*,
+        O.OBJ_ORG,
+        O.OBJ_LOCATION,
+        O.OBJ_UDFCHAR15,
+        O.OBJ_PART,
+        O.OBJ_UDFCHKBOX03,
+        O.OBJ_STORE
+        FROM U5MODELCONFIGS K,
+        U5MODELS M,
+        R5OBJECTS O,
+        U5U5MODELSMAPPING U
+        WHERE K.MDC_FMD_NAMEID = U.FDM_NAMEID
+        AND K.MDC_PART = M.MOD_PART
+        AND M.MOD_PART = O.OBJ_PART
+        AND M.MOD_BRAND = O.OBJ_UDFCHAR05
+        AND M.MOD_CODE = O.OBJ_MANUFACTMODEL
+        AND M.MOD_CODE = U.FDM_MODEL
+        AND M.MOD_BRAND = U.FDM_BRAND
+        AND O.OBJ_STATUS = 'C01'
+        AND O.OBJ_OBTYPE = 'A')
+        SELECT MDC_FMD_NAMEID model,
+        (CASE #{language}
+        WHEN 'ZH' THEN MDC_FMD_DESCRIPTION ELSE MDC_FMD_NAME_EN
+        END) AS modelName,
+        MDC_PROCESS_SEQ as SEQUENCE,
+        MDC_MAXQTY MAXQTY,
+        MDC_PART assetCategory,
+        dbo.R5O7_O7GET_DESC(#{language},
+        'PART',
+        MDC_PART,
+        '',
+        '') AS assetCategoryName,
+        (CASE #{language}
+        WHEN 'ZH' THEN MDC_MOD_CATEGORY ELSE MDC_CATEDESC_EN
+        END) modelCategory,
+        (CASE #{language}
+        WHEN 'ZH' THEN MDC_CONFIG ELSE MDC_CONFIG_EN
+        END) configuration,
+        COUNT(1) - dbo.F_U5GET_UNCLOSEDOBJQTY(MDC_PART,
+        MDC_FMD_NAMEID,
+        #{location},
+        '') AS qty
+        FROM OBJECTSDETAIL
+        WHERE OBJ_ORG IN ( #{corp},
+        '*' )
+        AND (   OBJ_STORE IN ( SELECT STR_CODE FROM R5STORES WHERE STR_UDFCHAR01 = #{location}
+        )
+        OR ISNULL(OBJ_LOCATION,
+        OBJ_UDFCHAR15) = #{location}
+        )
+        <if test="partCode != null and partCode !=''">
+            AND OBJ_PART = #{partCode}
+        </if>
+        <if test="normalModel != null and normalModel !=''">
+            AND MDC_FMD_NAMEID = #{normalModel}
+        </if>
+        AND MDC_PROCESS = #{process}
+        <if test=" process = '借用'">
+            AND OBJ_UDFCHKBOX03 = '+'
+        </if>
+        GROUP BY MDC_FMD_DESCRIPTION,
+        MDC_FMD_NAMEID,
+        MDC_FMD_NAME_EN,
+        MDC_PROCESS_SEQ,
+        MDC_MAXQTY,
+        MDC_PART,
+        MDC_MOD_CATEGORY,
+        MDC_CATEDESC_EN,
+        MDC_CONFIG,
+        MDC_CONFIG_EN,
+        MDC_ORIG_PICTURE1,
+        MDC_ORIG_PICTURE2,
+        MDC_COMP_PICTURE1,
+        MDC_COMP_PICTURE2
+        ORDER BY MDC_PROCESS_SEQ;
+    </select>
+    <select id="getOwnedAssets" parameterType="map" resultType="com.eam.mybatis.model.PickupOrReturnAsset">
+        WITH OBJECTSDETAIL
+        AS (SELECT K.*,
+        O.OBJ_CODE,
+        O.OBJ_ORG,
+        O.OBJ_LOCATION,
+        O.OBJ_UDFCHAR15,
+        O.OBJ_PART,
+        O.OBJ_STATUS,
+        O.OBJ_COMMISS,
+        O.OBJ_MANUFACTMODEL,
+        O.OBJ_UDFCHKBOX03,
+        O.OBJ_STORE,
+        O.OBJ_SERIALNO,
+        O.OBJ_UDFCHAR01,
+        O.OBJ_UDFCHAR05,
+        O.obj_udfchar07,
+        O.OBJ_UDFCHAR13
+        FROM U5MODELCONFIGS K, u5models M, R5OBJECTS O WITH(NOLOCK)
+        WHERE K.MDC_FMD_NAMEID = M.MOD_NAMEID
+        AND K.MDC_PART = M.MOD_PART
+        AND M.MOD_PART = O.OBJ_PART
+        AND M.MOD_BRAND = O.OBJ_UDFCHAR05
+        AND M.MOD_CODE = O.OBJ_MANUFACTMODEL
+        AND O.OBJ_STATUS not in ( 'C01')
+        AND O.OBJ_OBRTYPE = 'A')
+        SELECT MDC_FMD_NAMEID model,
+        (CASE #{language}
+        WHEN 'ZH' THEN MDC_FMD_DESCRIPTION
+        ELSE MDC_FMD_NAME_EN
+        END)
+        AS modelName,
+        MDC_PROCESS_SEQ as SEQUENCE,
+        MDC_MAXQTY MAXQTY,
+        MDC_PART assetCategory,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'PART',
+        MDC_PART,
+        '',
+        '')
+        AS assetCategoryName,
+        MDC_MOD_CATEGORY modelCategory,
+        (CASE #{language} WHEN 'ZH' THEN MDC_CONFIG ELSE MDC_CONFIG_EN END)
+        configuration,
+        MDC_ORIG_PICTURE1 origPicture1,
+        MDC_ORIG_PICTURE2 origPicture2,
+        MDC_COMP_PICTURE1 compPicture1,
+        MDC_COMP_PICTURE2 compPicture2,
+        OBJ_CODE assetCode, OBJ_UDFCHAR01 fixedAssetNo, DBO.R5O7_O7GET_DESC (#{language},
+        'OBJ',
+        OBJ_CODE,
+        '',
+        '') assetName,
+        OBJ_UDFCHAR05 brandCode,
+        DBO.R5O7_O7GET_DESC(#{language}, 'MANU', OBJ_UDFCHAR05, '', '') brandName,
+        OBJ_MANUFACTMODEL modelCode,
+        DBO.R5O7_O7GET_DESC(#{language}, '$MOD', OBJ_MANUFACTMODEL+'#'+OBJ_UDFCHAR05+'#'+OBJ_PART, '', '') AS modelName,
+        OBJ_SERIALNO sn,
+        CONVERT (VARCHAR, OBJ_COMMISS, 23) AS acceptDate,
+        '0' usedTime,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'UDLV',
+        'udfchar07' + obj_udfchar07,
+        'OBJ',
+        '')
+        AS "usage",
+        '01' borrowType,
+        DBO.R5O7_O7GET_DESC (#{language},
+        '$BYP',
+        '01' ,
+        '',
+        '') borrowTypeName ,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'UCODE',
+        OBJ_STATUS,
+        'OBST',
+        '')
+        "assetStatus"
+        FROM OBJECTSDETAIL
+        WHERE 1=1
+        <if test="corp != null and corp !=''">
+            AND OBJ_ORG in ( #{corp},'*')
+        </if>
+        AND OBJ_UDFCHAR13=#{person}
+        <if test="assetCode != null and assetCode !=''">
+            AND OBJ_CODE = #{assetCode}
+        </if>
+        <if test="fixedAssetNo != null and fixedAssetNo !=''">
+            and obj_udfchar01 like '%'+#{fixedAssetNo}+'%'
+        </if>
+        <if test="usage != null and usage !=''">
+            and obj_udfchar07 like '%'+#{usage}+'%'
+        </if>
+        <if test="sn != null and sn !=''">
+            and obj_SERIALNO like '%'+#{sn}+'%'
+        </if>
+        <if test="searchDesc != null and searchDesc !=''">
+            and ( obj_SERIALNO like '%'+#{searchDesc}+'%'
+            or OBJ_CODE like '%'+#{searchDesc}+'%'
+            or obj_udfchar01 like '%'+#{searchDesc}+'%'
+            )
+        </if>
+    </select>
+    <select id="queryUserGroups" parameterType="map" resultType="com.eam.mybatis.model.R5UserGroup">
+        SELECT UOG_ORG corp,
+        UOG_GROUP groupId,
+        dbo.R5O7_O7GET_DESC(#{language}, 'GROUP', UOG_GROUP, '', '') groupName,
+        dbo.R5O7_O7GET_DESC(#{language}, 'ORG', UOG_ORG, '', '') corpName,
+        UOG_DEFAULT isDefault
+        FROM R5USERORGANIZATION
+        WHERE (UOG_USER IN (select top 1 usr_code from r5users where USR_UDFCHAR01 = #{userId})
+            OR UOG_USER IN (select top 1 PER_USER from r5personnel where per_code = #{userId}))
+        <if test="corp != null and corp !='' ">
+            AND UOG_ORG=#{corp}
+        </if>
+    </select>
+    <select id="queryUserMessage" parameterType="map" resultType="com.eam.mybatis.model.R5Users">
+        select USR_CODE userId, usr_desc userName, usr_lang userLang
+        from r5users
+        where (usr_code IN (select top 1 usr_code from r5users where USR_UDFCHAR01 = #{userId})
+           OR usr_code IN (select top 1 PER_USER from r5personnel where per_code = #{userId}))
+    </select>
+    <select id="queryTodoWorkFlow" parameterType="com.eam.mybatis.model.TodoWorkFlow"
+            resultType="com.eam.mybatis.model.TodoWorkFlow">
+        SELECT DCF_EVENT                                                             eamTaskId,
+               DCF_TRANS                                                             eamTransactionId,
+               DCF_AMPCODE                                                           requestId,
+               DCF_STATUS                                                            confirmStatus,
+               DCF_NOTIFYDATE                                                        transDate,
+               DCF_CONFIRMDATE                                                       confirmDate,
+               DCF_OPERATOR                                                          operator,
+               DCF_OWNERNO                                                           ownerNo,
+               DCF_CONFIRMTYPE                                                       confirmationType,
+               DBO.R5O7_O7GET_DESC(#{language}, 'UCODE', DCF_STATUS, 'PLST', 'PLST') confirmName
+        FROM U5DOUBLECONFIRMATION
+        where DCF_EVENT = #{eamTaskId}
+          AND DCF_TRANS = #{eamTransactionId}
+    </select>
+    <select id="queryTodoWorkFlowDetails" parameterType="com.eam.mybatis.model.TodoWorkFlow"
+            resultType="com.eam.mybatis.model.TodoWorkFlowDetail">
+        select OBJ_CODE                                                        assetCode,
+               OBJ_UDFCHAR01                                                   fixedAssetNo,
+               DBO.R5O7_O7GET_DESC(#{language}, 'OBJ', OBJ_CODE, '', '')       assetName,
+               OBJ_UDFCHAR05                                                   brandCode,
+               DBO.R5O7_O7GET_DESC(#{language}, 'MANU', OBJ_UDFCHAR05, '', '') brandName,
+               OBJ_MANUFACTMODEL                                               modelCode,
+               DBO.R5O7_O7GET_DESC(#{language}, '$MOD', OBJ_MANUFACTMODEL + '#' + OBJ_UDFCHAR05 + '#' + OBJ_PART, '',
+                                   '') AS                                      modelName
+        from r5objects
+        where obj_code in (select trl_object from R5TRANSLINES where trl_trans = #{eamTransactionId})
+
+    </select>
+
+    <select id="checkDefaultPartByNormal" parameterType="String" resultType="String">
+        SELECT MDC_PART
+        FROM U5MODELCONFIGS
+        WHERE mdc_process = N'入职领用'
+          AND MDC_FMD_NAMEID = #{nomalModel}
+    </select>
+
+    <select id="getTaskDetails" parameterType="map" resultType="com.eam.mybatis.model.R5EventsCommon">
+        SELECT DBO.R5O7_O7GET_DESC(#{language}, 'UCOD', evt_Jobtype, 'JBTP', 'JBTP') taskType,
+               evt_status                                                            taskStatus,
+               evt_jobtype                                                           jobType,
+               evt_udfchar01                                                         reqCode,
+               evt_code                                                              eventCode,
+               evt_org                                                               corp,
+               evt_object                                                            location,
+               DBO.R5O7_O7GET_DESC(#{language}, 'OBJ', evt_object, '', '')           locationDesc,
+               evt_MRC + N' - '
+                   + DBO.R5O7_O7GET_DESC(#{language}, 'MRC', evt_MRC, '', '')        department,
+               evt_origin                                                            initialPerson,
+               DBO.R5O7_O7GET_DESC(#{language}, 'PERS', evt_origin, '', '')          initialPersonName,
+               evt_udfchar05                                                         responsible,
+               DBO.R5O7_O7GET_DESC(#{language}, 'PERS', evt_udfchar05, '', '')       responsibleName,
+               evt_date                                                              reqDate,
+               CASE evt_udfchkbox01
+                   WHEN '+' THEN 'Y'
+                   ELSE 'N' END                                                      onBehalfMark,
+               CASE evt_udfchar16
+                   WHEN NULL THEN 'N'
+                   ELSE 'Y' END                                                      inStore,
+               DBO.R5O7_O7GET_DESC(#{language}, '$BYP', evt_udfchar12, '', '')       borrowType,
+               evt_udfchar07                                                         usage,
+               evt_udfchar10                                                         poNumber,
+               evt_udfchar11                                                         acceptNumber,
+               evt_udfchar13                                                         expressNumber,
+               evt_udfchar16 + N' - '
+                   + DBO.R5O7_O7GET_DESC(#{language}, 'STOR', evt_udfchar16, '', '') wareHouse,
+               evt_udfchar08                                                         OU,
+               evt_workaddress                                                       comments,
+               evt_udfchar21                                                         property,
+               CAST(evt_udfnum01 as decimal)                                       duration
+        FROM r5events
+        WHERE evt_jobtype &lt;&gt; 'MEC'
+          and evt_code = #{evtCode}
+    </select>
+    <select id="getAttachment" parameterType="String" resultType="com.eam.mybatis.model.Attachment">
+        select wof_wo eventCode, wof_line line, wof_filename name, wof_url url
+        from u5eventfile
+        where wof_wo = #{evtCode}
+    </select>
+    <select id="getEventDetails_Part" parameterType="map" resultType="com.eam.mybatis.model.R5EventsDetails">
+        SELECT mlp_part  partCode,
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'PART',
+                                   mlp_part,
+                                   '',
+                                   '')
+                         partDesc,
+               b.MLP_QTY planQty,
+               abs(isnull((SELECT sum(trl_qty * trl_io) FROM r5translines WHERE trl_event = mtl_event
+                                                                            AND trl_part = mlp_part),
+                          0))
+                         actQty
+        FROM R5MATLISTS a,
+             R5MATLPARTS b
+        WHERE b.MLP_MATLIST = a.MTL_CODE
+          AND mtl_event = #{evtCode}
+    </select>
+    <select id="getDetailsFromTransAction" parameterType="map" resultType="com.eam.mybatis.model.ReceiptItem">
+        SELECT TRL_OBJECT               assetCode,
+               TRL_DATE                 transDate,
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'OBJ',
+                                   TRL_OBJECT,
+                                   'A',
+                                   'A') assetDesc,
+               PAR_CATEGORY             categoryCode,
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'OBJ',
+                                   PAR_CATEGORY,
+                                   'C',
+                                   'C') categoryName,
+               (SELECT TOP 1 wup_duration FROM U5PARTREQUIREMENT1 WHERE wup_wo = trl_event
+                                                                    AND wup_part = trl_part)
+                                        duration,
+               (SELECT TOP 1 TRL_DATE + wup_duration FROM U5PARTREQUIREMENT1 WHERE wup_wo = trl_event
+                                                                               AND wup_part = trl_part)
+                                        dueDate
+        FROM R5TRANSLINES A,
+             R5PARTS
+        WHERE A.TRL_PART = PAR_CODE
+          AND TRL_EVENT = #{evtCode}
+          AND TRL_PART = #{partCode}
+          AND TRL_QTY &gt; 0
+          AND NOT EXISTS(SELECT 1
+                         FROM R5TRANSLINES B
+                         WHERE B.TRL_EVENT = A.TRL_EVENT
+                           AND B.TRL_OBJECT = A.TRL_OBJECT
+                           AND B.TRL_QTY &lt; 0)
+    </select>
+    <select id="getEventDetails_Event" parameterType="map" resultType="com.eam.mybatis.model.R5EventsDetails">
+        SELECT OBJ_PART partCode,
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'PART',
+                                   OBJ_PART,
+                                   '',
+                                   '')
+                        partDesc,
+               SUM(1)   planQty,
+               abs(isnull((SELECT sum(trl_qty * trl_io) FROM r5translines WHERE trl_event = EVT_PARENT
+                                                                            AND trl_part = OBJ_PART),
+                          0))
+                        actQty
+        FROM R5EVENTS,
+             R5OBJECTS
+        WHERE EVT_JOBTYPE = 'MEC'
+          AND EVT_OBJECT = OBJ_CODE
+          AND EVT_PARENT = #{evtCode}
+        GROUP BY OBJ_PART, EVT_PARENT
+
+    </select>
+    <select id="getDetailsFromEvents" parameterType="map" resultType="com.eam.mybatis.model.ReceiptItem">
+        SELECT EVT_OBJECT                                                      assetCode,
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'OBJ',
+                                   EVT_OBJECT,
+                                   'A',
+                                   'A')
+                                                                               assetDesc,
+               PAR_CATEGORY                                                    categoryCode,
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'OBJ',
+                                   PAR_CATEGORY,
+                                   'C',
+                                   'C')
+                                                                               categoryName,
+               (SELECT trl_date FROM r5translines WHERE trl_event = EVT_PARENT
+                                                    AND trl_object = OBJ_code) transDate,
+               evt_udfnum01                                                    duration
+
+        FROM R5EVENTS,
+             R5OBJECTS,
+             R5PARTS
+        WHERE EVT_JOBTYPE = 'MEC'
+          AND OBJ_PART = PAR_CODE
+          AND EVT_OBJECT = OBJ_CODE
+          AND EVT_PARENT = #{evtCode}
+
+    </select>
+    <select id="checkObjCanMove" parameterType="map" resultType="String">
+        select dbo.F_U5CHECK_OBJCANMOVE(#{assetCode}, #{evt_jobtype})
+    </select>
+    <select id="relatedUsermodels" parameterType="map" resultType="com.eam.mybatis.model.PickupOrReturnAsset">
+        SELECT MDC_FMD_NAMEID model,
+        (CASE #{language} WHEN 'ZH' THEN MDC_FMD_DESCRIPTION ELSE MDC_FMD_NAME_EN END)
+        AS modelName,
+        MDC_PROCESS_SEQ as SEQUENCE,
+        MDC_MAXQTY MAXQTY,
+        MDC_PART assetCategory,
+        DBO.R5O7_O7GET_DESC (#{language},'PART',MDC_PART,'', '') AS assetCategoryName,
+        (CASE #{language}
+        WHEN 'ZH' THEN MDC_MOD_CATEGORY
+        ELSE MDC_CATEDESC_EN
+        END) modelCategory,
+        (CASE #{language} WHEN 'ZH' THEN MDC_CONFIG ELSE MDC_CONFIG_EN END) configuration,
+        (
+        SELECT
+        <choose>
+            <when test="location != null and location !=''">
+                count (1)-dbo.F_U5GET_UNCLOSEDOBJQTY(MDC_PART, #{normalModel}, #{location},'')
+                FROM u5models M, R5OBJECTS
+                WHERE K.MDC_FMD_NAMEID = M.MOD_NAMEID
+                AND K.MDC_PART = M.MOD_PART
+                AND M.MOD_PART = OBJ_PART
+                AND M.MOD_BRAND = OBJ_UDFCHAR05
+                AND M.MOD_CODE = OBJ_MANUFACTMODEL
+                AND OBJ_STATUS = 'C01'
+                AND OBJ_OBTYPE = 'A'
+                AND (k.MDC_PROCESS &lt;&gt; N'借用' OR OBJ_UDFCHKBOX03 = '+')
+                AND OBJ_ORG in ( #{corp},'*')
+
+                    AND ( OBJ_STORE IN (SELECT STR_CODE
+                    FROM R5STORES
+                    WHERE STR_UDFCHAR01 = #{location})
+                    OR OBJ_LOCATION = #{location})
+
+            </when>
+            <otherwise>
+                '0'
+            </otherwise>
+        </choose>
+
+        )
+        AS qty,
+        MDC_ORIG_PICTURE1 origPicture1,
+        MDC_ORIG_PICTURE2 origPicture2,
+        MDC_COMP_PICTURE1 compPicture1,
+        MDC_COMP_PICTURE2 compPicture2
+        FROM U5MODELCONFIGS k
+        WHERE MDC_NOTUSED = N'-' AND MDC_PROCESS = #{process}
+        <if test="normalModel != null and normalModel !=''">
+            AND MDC_FMD_NAMEID = #{normalModel}
+        </if>
+        <if test="partCode != null and partCode !=''">
+            AND MDC_PART = #{partCode}
+        </if>
+        ORDER BY MDC_PROCESS_SEQ
+    </select>
+    <select id="getRelatedEventCode" resultType="com.eam.mybatis.model.U5EventsApproveList"
+            parameterType="map">
+        WITH AUDS
+                AS (SELECT EVT_CODE,
+                           EVT_STATUS     EVTSTATUS,
+                           EVT_UDFCHAR13  EXPRESSNO,
+                           EVT_UDFCHAR14  EXPRESSCOMP,
+                           AVA_FROM       FROMSTATUS,
+                           AVA_TO         TOSTATUS,
+                           AVA_CHANGED    LOGTIME,
+                           ISNULL((select top 1 PER_CODE from R5PERSONNEL where per_user = AVA_MODIFIEDBY),
+                             (SELECT top 1 TRA_AUTH FROM R5TRANSACTIONS where TRA_TYPE = 'I' and TRA_TOENTITY = 'EVNT' AND TRA_TOCODE = #{evtCode} ORDER BY  TRA_DATE DESC))LOGWORKNO,
+                           ''             LOGOPINIONK,
+                           EVT_JOBTYPE    JOBTYPE
+                    FROM R5EVENTS,
+                         R5AUDVALUES
+                    WHERE EVT_CODE = #{evtCode}
+                      AND AVA_TABLE = 'R5EVENTS'
+                      AND AVA_PRIMARYID = EVT_CODE)
+        SELECT AUDS.*,
+               (CASE ROW_NUMBER() OVER (ORDER BY LOGTIME DESC)
+                    WHEN 1 THEN N'当前'
+                    ELSE N'历史'
+                       END)
+                                          STATUSTYPE,
+               (CASE #{language}
+                    WHEN 'EN' THEN TLG_LOGNAME_EN
+                    ELSE TLG_LOGNAME END) LOGNAME,
+               (CASE #{language}
+                    WHEN 'EN' THEN TLG_LOGRESULT_EN
+                    ELSE TLG_LOGRESULT END)
+                                          LOGRESULT,
+               TLG_CODE                   LOGCODE
+        FROM AUDS,
+             U5EVENTSTATUSMAP
+        WHERE JOBTYPE = TLG_JOBTYPE
+          AND TLG_FROMSTATUS = FROMSTATUS
+          AND TLG_TOSTATUS = TOSTATUS
+        ORDER BY LOGTIME DESC
+    </select>
+
+
+    <select id = "getAssetsListByCodeList" parameterType="map" resultType = "com.eam.mybatis.model.U5MyAsset">
+         SELECT obj_code                                   AS "assetCode",
+               OBJ_SERIALNO                               AS "serialNo",
+               dbo.R5O7_O7GET_DESC(#{language},
+                                   'OBJ',
+                                   OBJ_CODE,
+                                   '',
+                                   '')
+                                                          AS "assetName",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'MANU',
+                                   OBJ_UDFCHAR05,
+                                   '',
+                                   '')
+                   + N'—'
+                   + DBO.R5O7_O7GET_DESC(#{language},
+                                         '$MOD',
+                                         OBJ_MANUFACTMODEL + '#' + OBJ_UDFCHAR05 + '#' + OBJ_PART,
+                                         '',
+                                         '')
+                                                          AS "featureDesc",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'PERS',
+                                   OBJ_UDFCHAR12,
+                                   '',
+                                   '')
+                                                          AS "ownerDesc",
+               OBJ_UDFCHAR12                              AS "ownerNo",
+               OBJ_UDFCHAR01                              AS "fixAssetNo",
+               CONVERT(VARCHAR, OBJ_COMMISS, 23)          AS "sendTime",
+               datediff(month, obj_commiss, getdate())    AS "usedTime",
+               obj_udfchar07                               AS "usage",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'UDLV',
+                                   'udfchar07' + obj_udfchar07,
+                                   'OBJ',
+                                   '')
+                                                          AS "usageDesc",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'MANU',
+                                   OBJ_UDFCHAR05,
+                                   '',
+                                   '')
+                                                          AS "brand",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'OBJ',
+                                   obj_category,
+                                   'C',
+                                   '')
+                                                             "asset",
+               obj_udfchar16                              AS "configChange",
+               obj_udfchar14                                 "depNo",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'MRC',
+                                   obj_udfchar14,
+                                   '',
+                                   '')
+                                                             "depName",
+               obj_udfchar15                                 "locationCode",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'LOC',
+                                   obj_udfchar15,
+                                   '',
+                                   '')
+                                                             "locationDesc",
+               obj_udfchar27                                 "locationNote",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   '$MOD',
+                                   OBJ_MANUFACTMODEL + '#' + OBJ_UDFCHAR05 + '#' + OBJ_PART,
+                                   '',
+                                   '')
+                                                          AS "model",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'PERS',
+                                   obj_udfchar13,
+                                   '',
+                                   '')
+                                                             "userDesc",
+               obj_udfchar13                                 "userNo",
+               obj_udfchar04                                 "orientation",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'UDLV',
+                                   'udfchar04' + obj_udfchar04,
+                                   'OBJ',
+                                   '')                       "orientationDesc",
+               obj_udfchar17                                 "originalConfig",
+               obj_udfchar03                                 "ouCode",
+               obj_part                                      "partCode",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'PART',
+                                   obj_part,
+                                   '',
+                                   '')
+                                                             "partDesc",
+               obj_udfchar10                                 "poNumber",
+               obj_udfchar11                                 "acceptNumber",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'UCODE',
+                                   OBJ_STATUS,
+                                   'OBST',
+                                   '')
+                                                             "assetStatus",
+               OBJ_STORE                                     "storeCode",
+               DBO.R5O7_O7GET_DESC(#{language},
+                                   'STOR',
+                                   OBJ_STORE,
+                                   '',
+                                   '')
+                                                             "storeDesc",
+               obj_udfchar06                                 "supplierName",
+                isnull((CASE (SELECT TOP 1 MRC_CLASS FROM R5MRCS WHERE MRC_CODE = OBJ_UDFCHAR14)
+                WHEN 'ADMIN' THEN 'ADMINISTRATION'
+                ELSE (SELECT TOP 1 MRC_CLASS FROM R5MRCS WHERE MRC_CODE = OBJ_UDFCHAR14) END),'BU')  as "manageType",
+               [dbo].[F_U5GET_EVTSTATE]([dbo].[F_U5GET_UnClosedEVTBYOBJ](obj_code),#{language})
+                                                          as state,
+               [dbo].[F_U5GET_UnClosedEVTBYOBJ](obj_code) AS eamTaskId,
+               OBJ_UDFDATE02                              as borrowStartDate,
+               OBJ_UDFDATE01                              as borrowEndDate,
+               obj_udfchar16                              as updatedConfig,
+               obj_org                                    as corp,
+               obj_udfchar28                              as NetValue,
+        (CASE WHEN datediff (month, obj_commiss,getdate ()) &gt;= (select TOP 1 ISNULL(LMD_DEPLIFT,999) from U5PARTCATEGORY where LMD_FINANCESYSTEM = OBJ_ORG and LMD_PARTCODE = OBJ_PART AND LMD_DEPLIFT IS NOT NULL AND ISNULL(LMD_NOTUSED,'-') = '-' ) THEN 'Y' ELSE 'N' END) AS "ifScrap"
+        FROM r5objects
+        WHERE obj_notused = '-'
+        AND (obj_code in
+        <foreach collection="objCodeList" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        OR
+        obj_udfchar01 in
+        <foreach collection="objCodeList" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        )
+    </select>
+
+    <select id="getHEMALineByLineId" parameterType="String" resultType="String">
+        SELECT EVT_UDFCHAR22 FROM R5EVENTS
+        WHERE EVT_UDFCHAR02 = #{lineId}
+        AND EVT_JOBTYPE = '10YS'
+    </select>
+
+    <select id="getAssetCorpByCode" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT DISTINCT OBJ_ORG as code,
+                dbo.R5O7_O7GET_DESC(#{language}, 'ORG', OBJ_ORG, '*', '*') as value
+          FROM R5OBJECTS WHERE OBJ_OBTYPE = 'A'
+        <if test="assetCode != null and assetCode != ''">
+            AND OBJ_CODE = #{assetCode}
+        </if>
+        <if test="workNo != null and workNo != ''">
+            AND (OBJ_UDFCHAR13 = #{workNo} or OBJ_UDFCHAR12 = #{workNo})
+        </if>
+
+    </select>
+
+    <select id="getScrapTypes" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT SCT_TYPECODE AS code,
+               (CASE #{language} WHEN 'ZH'
+                    THEN SCT_TYPEDESC
+                    WHEN 'EN'
+                    THEN SCT_TYPEDESCEN
+                    ELSE SCT_TYPEDESCEN
+                END) as value
+        FROM U5SCRAPTYPES WHERE ISNULL(SCT_NOTUSED,'-') = '-'
+    </select>
+
+    <select id="getDisposeTypes" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        (SELECT DPT_TYPECODE AS code,
+                (CASE #{language} WHEN 'ZH'
+                    THEN DPT_TYPEDESC
+                    WHEN 'EN'
+                    THEN DPT_TYPEDESCEN
+                    ELSE DPT_TYPEDESCEN
+                 END) as value
+        FROM U5DISPOSETYPES WHERE ISNULL(DPT_NOTUSED,'-') = '-')
+    </select>
+
+    <select id="getSecureTypes" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        (SELECT SET_CODE AS code,
+                (CASE #{language} WHEN 'ZH'
+                    THEN DESCRIPTION
+                    WHEN 'EN'
+                    THEN SET_DESCEN
+                    ELSE SET_DESCEN
+                 END) as value
+        FROM U5SECURETYPES WHERE ISNULL(SET_NOTUSED,'-') = '-')
+    </select>
+
+    <select id="getSuppliers" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT TOP 50 * FROM (SELECT COM_CODE AS code,
+               COM_DESC AS value
+          FROM R5COMPANIES WHERE ISNULL(COM_NOTUSED,'-') = '-') k
+          WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like N'%'+#{searchDesc}+'%'
+        </if>
+    </select>
+
+    <select id="getOwnedAssetCodes" parameterType="map" resultType="com.eam.mybatis.model.PickupOrReturnAsset">
+        SELECT MDC_FMD_NAMEID model,
+        (CASE #{language}
+        WHEN 'ZH' THEN MDC_FMD_DESCRIPTION
+        ELSE MDC_FMD_NAME_EN
+        END)
+        AS modelName,
+        MDC_PROCESS_SEQ as SEQUENCE,
+        MDC_MAXQTY MAXQTY,
+        MDC_PART assetCategory,
+        MDC_MOD_CATEGORY modelCategory,
+        (CASE #{language} WHEN 'ZH' THEN MDC_CONFIG ELSE MDC_CONFIG_EN END)
+        configuration,
+        MDC_ORIG_PICTURE1 origPicture1,
+        MDC_ORIG_PICTURE2 origPicture2,
+        MDC_COMP_PICTURE1 compPicture1,
+        MDC_COMP_PICTURE2 compPicture2,
+        OBJ_CODE assetCode,
+        OBJ_UDFCHAR01 fixedAssetNo,
+        OBJ_UDFCHAR05 brandCode,
+        OBJ_MANUFACTMODEL modelCode,
+        OBJ_SERIALNO sn,
+        CONVERT (VARCHAR, OBJ_COMMISS, 23) AS acceptDate
+        FROM U5MODELCONFIGS K, u5models M, R5OBJECTS O
+        with(NOLOCK) WHERE 1=1
+        <if test="corp != null and corp !=''">
+            AND O.OBJ_ORG in ( #{corp},'*')
+        </if>
+        AND K.MDC_FMD_NAMEID = M.MOD_NAMEID
+        AND K.MDC_PART = M.MOD_PART
+        AND M.MOD_PART = O.OBJ_PART
+        AND M.MOD_BRAND = O.OBJ_UDFCHAR05
+        AND M.MOD_CODE = O.OBJ_MANUFACTMODEL
+        AND O.OBJ_OBTYPE = 'A'
+        AND O.OBJ_STATUS NOT IN ('D00','C01')
+        AND ISNULL(O.OBJ_NOTUSED,'-') = '-'
+        AND O.OBJ_UDFCHAR13=#{person}
+    </select>
+
+    <select id="getTaxRates" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT TOP 50 * FROM
+            (SELECT TXR_CODE AS code,
+                    TXR_DESC AS value
+               FROM R5TAXRATES ) k
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like N'%'+#{searchDesc}+'%'
+        </if>
+    </select>
+
+    <select id="getTestData" parameterType="map" resultType="String">
+        select ACT_EVENT from R5ACTIVITIES where act_note is null
+    </select>
+
+    <select id="getLocationInfo" parameterType="map" resultType="com.eam.mybatis.model.LocationInfo">
+        SELECT TOP 1
+               M.LOM_3RDCODE AS mappingLocation,
+               M.LOM_3RDSYSTEM as thirdSystem,
+               M.LOM_AREAADMIN as areaAdmin,
+               M.LOM_AREAADMINDESC as areaAdminDesc,
+               M.LOM_AREAFAADMIN as areaFAAdmin,
+               M.LOM_AREAFAADMINDESC as areaFAAdminDesc,
+               L.OBJ_CODE as locationCode,
+               dbo.F_U5GET_OBJFULLDESC(L.OBJ_CODE, #{language}) as locationDesc,
+               L.OBJ_CLASS AS locationClass,
+               L.OBJ_PARENT AS locationParent
+          FROM U5LOCATIONMAPPING M, R5OBJECTS L
+         WHERE L.OBJ_OBRTYPE = 'L' AND M.LOM_EAMCODE = L.OBJ_CODE
+           AND L.OBJ_CODE = #{location}
+           AND M.LOM_3RDSYSTEM = #{corp}
+           AND ISNULL(M.LOM_NOTUSED,'-') = '-'
+    </select>
+
+    <select id="getLocationOUs" parameterType="map" resultType="com.eam.mybatis.model.LocationOU">
+        SELECT M.LOM_3RDCODE AS mappingLocation,
+               M.LOM_3RDSYSTEM as thirdSystem,
+               O.LOM_OUCODE AS ouCode,
+               (SELECT DESCRIPTION FROM U5OUCORPMAPPING WHERE OCM_OUCODE = O.LOM_OUCODE) AS ouDesc,
+               L.OBJ_CODE as locationCode,
+               dbo.F_U5GET_OBJFULLDESC(L.OBJ_CODE, #{language}) as locationDesc,
+               O.LOM_REGIONCODE as regionalSection,
+               O.LOM_REGIONDESC as regionalSectionDesc,
+               O.LOM_COSTCODE as costCode
+          FROM U5LOCATIONMAPPING M, R5OBJECTS L, U5LOCATIONOU O
+         WHERE L.OBJ_OBRTYPE = 'L' AND M.LOM_EAMCODE = L.OBJ_CODE
+           AND O.LOM_3RDCODE = M.LOM_3RDCODE AND O.LOM_3RDSYSTEM = M.LOM_3RDSYSTEM AND O.LOM_EAMCODE = M.LOM_EAMCODE
+           AND L.OBJ_CODE = #{location}
+           AND M.LOM_3RDSYSTEM = #{corp}
+           AND ISNULL(M.LOM_NOTUSED,'-') = '-'
+           <if test=" ouCode!=null and ouCode != '' ">
+              AND O.LOM_OUCODE = #{ouCode}
+           </if>
+      ORDER BY O.LOM_DEFAULT
+    </select>
+
+    <select id = "getAssetsListByTDNCodeList" parameterType="map" resultType = "com.eam.mybatis.model.U5MyAsset">
+        SELECT obj_code                                   AS "assetCode",
+        OBJ_SERIALNO                               AS "serialNo",
+        dbo.R5O7_O7GET_DESC(#{language},
+        'OBJ',
+        OBJ_CODE,
+        '',
+        '')
+        AS "assetName",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'MANU',
+        OBJ_UDFCHAR05,
+        '',
+        '')
+        + N'—'
+        + DBO.R5O7_O7GET_DESC(#{language},
+        '$MOD',
+        OBJ_MANUFACTMODEL + '#' + OBJ_UDFCHAR05 + '#' + OBJ_PART,
+        '',
+        '')
+        AS "featureDesc",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'PERS',
+        OBJ_UDFCHAR12,
+        '',
+        '')
+        AS "ownerDesc",
+        OBJ_UDFCHAR12                              AS "ownerNo",
+        OBJ_UDFCHAR01                              AS "fixAssetNo",
+        CONVERT(VARCHAR, OBJ_COMMISS, 23)          AS "sendTime",
+        datediff(month, obj_commiss, getdate())    AS "usedTime",
+        obj_udfchar07                               AS "usage",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'UDLV',
+        'udfchar07' + obj_udfchar07,
+        'OBJ',
+        '')
+        AS "usageDesc",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'MANU',
+        OBJ_UDFCHAR05,
+        '',
+        '')
+        AS "brand",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'OBJ',
+        obj_category,
+        'C',
+        '')
+        "asset",
+        obj_udfchar16                              AS "configChange",
+        obj_udfchar14                                 "depNo",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'MRC',
+        obj_udfchar14,
+        '',
+        '')
+        "depName",
+        obj_udfchar15                                 "locationCode",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'LOC',
+        obj_udfchar15,
+        '',
+        '')
+        "locationDesc",
+        obj_udfchar27                                 "locationNote",
+        DBO.R5O7_O7GET_DESC(#{language},
+        '$MOD',
+        OBJ_MANUFACTMODEL + '#' + OBJ_UDFCHAR05 + '#' + OBJ_PART,
+        '',
+        '')
+        AS "model",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'PERS',
+        obj_udfchar13,
+        '',
+        '')
+        "userDesc",
+        obj_udfchar13                                 "userNo",
+        obj_udfchar04                                 "orientation",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'UDLV',
+        'udfchar04' + obj_udfchar04,
+        'OBJ',
+        '')                       "orientationDesc",
+        obj_udfchar17                                 "originalConfig",
+        obj_udfchar03                                 "ouCode",
+        obj_part                                      "partCode",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'PART',
+        obj_part,
+        '',
+        '')
+        "partDesc",
+        obj_udfchar10                                 "poNumber",
+        obj_udfchar11                                 "acceptNumber",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'UCODE',
+        OBJ_STATUS,
+        'OBST',
+        '')
+        "assetStatus",
+        OBJ_STORE                                     "storeCode",
+        DBO.R5O7_O7GET_DESC(#{language},
+        'STOR',
+        OBJ_STORE,
+        '',
+        '')
+        "storeDesc",
+        obj_udfchar06                                 "supplierName",
+        isnull((CASE (SELECT TOP 1 MRC_CLASS FROM R5MRCS WHERE MRC_CODE = OBJ_UDFCHAR14)
+        WHEN 'ADMIN' THEN 'ADMINISTRATION'
+        ELSE (SELECT TOP 1 MRC_CLASS FROM R5MRCS WHERE MRC_CODE = OBJ_UDFCHAR14) END),'BU')  as "manageType",
+        [dbo].[F_U5GET_EVTSTATE]([dbo].[F_U5GET_UnClosedEVTBYOBJ](obj_code),#{language})
+        as state,
+        [dbo].[F_U5GET_UnClosedEVTBYOBJ](obj_code) AS eamTaskId,
+        OBJ_UDFDATE02                              as borrowStartDate,
+        OBJ_UDFDATE01                              as borrowEndDate,
+        obj_udfchar16                              as updatedConfig,
+        obj_org                                    as corp,
+        obj_udfchar28                              as NetValue,
+        (CASE WHEN datediff (month, obj_commiss,getdate ()) &gt;= (select TOP 1 ISNULL(LMD_DEPLIFT,999) from U5PARTCATEGORY where LMD_FINANCESYSTEM = OBJ_ORG and LMD_PARTCODE = OBJ_PART AND LMD_DEPLIFT IS NOT NULL AND ISNULL(LMD_NOTUSED,'-') = '-' ) THEN 'Y' ELSE 'N' END) AS "ifScrap"
+        FROM r5objects
+        WHERE obj_notused = '-'
+        AND OBJ_OBRTYPE = 'A'
+        AND (obj_code in
+        <foreach collection="objCodeList" index="index" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        )
+    </select>
+
+    <!-- 2019年12月12日17:53:59 新增内容 -->
+    <select id="getCorpList" resultType="com.eam.mybatis.model.R5Orgnazition">
+        select org_code, org_desc from R5ORGANIZATION
+    </select>
+    <select id="getPartList" resultType="com.eam.mybatis.model.R5Parts">
+        select par_code as partCode, par_desc as partDesc from r5parts where par_notused = '-'
+    </select>
+    <select id="getBrandList" resultType="com.eam.mybatis.model.R5Manufactures">
+        select mfg_code, mfg_desc from R5MANUFACTURERS where mfg_notused = '-'
+    </select>
+    <select id="getModelList" resultType="com.eam.mybatis.model.Models">
+        select mod_code, mod_brand, mod_part from U5MODELS where ISNULL(MOD_NOTUSED,'-') = '-'
+    </select>
+    <select id="getobjStatusList" resultType="com.eam.mybatis.model.ObjStatus">
+        select UCO_CODE AS objStatusCode, UCO_DESC AS objStatusDesc FROM R5UCODES where uco_rentity = 'OBST' and (uco_code like 'I%' or uco_code like 'C%') AND UCO_RCODE IN ('C','I') AND UCO_NOTUSED = '-'
+    </select>
+    <select id="getCurrencyList" resultType="com.eam.mybatis.model.R5Currency">
+        select cur_code, cur_desc from R5CURRENCIES where cur_notused = '-'
+    </select>
+    <select id="getMrcList" resultType="com.eam.mybatis.model.R5Mrcs">
+        select mrc_code, mrc_desc from r5mrcs where mrc_notused = '-'
+    </select>
+    <select id="getPersonList" resultType="com.eam.mybatis.model.R5Personnel">
+        select per_code, per_desc from r5personnel where per_notused = '-'
+    </select>
+    <select id="getAssetStatusbyLimited" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT * FROM (SELECT OSF_OBJSTATUS as code,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'UCODE',
+        OSF_OBJSTATUS,
+        'OBST',
+        '') as  value
+        FROM U5OBJSTFILTERCONF
+        WHERE OSF_PROCESSID = #{process} AND isnull (OSF_NOTUSED, '-') = '-'
+        ) K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getAssetClassList" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT * FROM (SELECT CLS_CODE as code,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'CLAS',
+        CLS_CODE,
+        'OBJ',
+        'OBJ') as value
+        FROM R5CLASSES
+        WHERE CLS_RENTITY = 'OBJ' AND CLS_NOTUSED = '-' AND CLS_CODE &lt;&gt; '*'
+        ) K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getAssetCateList" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT * FROM (SELECT OBJ_CODE as code,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'OBJ',
+        OBJ_CODE,
+        'C',
+        'C') as value
+        FROM R5OBJECTS
+        WHERE OBJ_OBRTYPE = 'C' AND OBJ_NOTUSED = '-' AND OBJ_CODE &lt;&gt; '*'
+        <if test="class!=null and class!=''">
+        AND OBJ_CLASS = #{objClass}
+        </if>
+        ) K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getAssetCategoryList" parameterType="map" resultType="com.eam.mybatis.model.AssetCategory">
+        SELECT * FROM (SELECT OBJ_CODE as categoryCode,
+        DBO.R5O7_O7GET_DESC (#{language},
+        'OBJ',
+        OBJ_CODE,
+        'C',
+        'C') as categoryDesc,
+        OBJ_CLASS AS categoryClass
+        FROM R5OBJECTS
+        WHERE OBJ_OBRTYPE = 'C' AND OBJ_NOTUSED = '-' AND OBJ_CODE &lt;&gt; '*'
+        <if test="class!=null and class!=''">
+            AND OBJ_CLASS = #{objClass}
+        </if>
+        ) K
+        WHERE 1=1
+        <if test=" searchDesc!=null and searchDesc !='' ">
+            and k.value like '%'+#{searchDesc}+'%'
+        </if>
+    </select>
+    <select id="getLocationAll" parameterType="map" resultType="com.eam.mybatis.model.U5CodeValue">
+        SELECT OBJ_CODE code,
+        DBO.F_U5GET_OBJFULLDESC (OBJ_CODE,#{language})
+        as value,
+        OBJ_CLASS class
+        FROM R5OBJECTS A
+        WHERE OBJ_OBTYPE = 'L'
+        AND ISNULL (OBJ_NOTUSED, '-') = '-'
+        AND A.OBJ_ORG IN ('*', #{corp})
+        AND NOT EXISTS
+        (SELECT 1
+        FROM R5OBJECTS B
+        WHERE B.OBJ_PARENT = A.OBJ_CODE
+        AND B.OBJ_OBTYPE = 'L'
+        AND ISNULL (B.OBJ_NOTUSED, '-') = '-')
+        <!-- 增加与Oracle Mapping判断
+        <if test=" corp=='ALIO'">-->
+        <if test="noCheckFA==null">
+            AND EXISTS(SELECT
+            1
+            FROM
+            U5LOCATIONMAPPING
+            WHERE
+            LOM_EAMCODE = OBJ_CODE AND
+            LOM_3RDSYSTEM = #{corp} AND
+            LOM_NOTUSED IN ('-',NULL))
+        </if>
+        <if test=" locationClass!=null and locationClass !='' ">
+            and OBJ_CLASS = #{locationClass}
+        </if>
+    </select>
+
+    <select id="getAssetCodeList" resultType="String">
+        SELECT OBJ_CODE FROM R5OBJECTS WHERE OBJ_OBRTYPE = 'A' AND ISNULL(OBJ_NOTUSED,'-') = '-'
+    </select>
+
+    <select id="getMrcInfo" parameterType="map" resultType="com.eam.mybatis.model.R5Mrcs">
+        select MRC_CODE AS mrc_code,
+               MRC_DESC AS mrc_desc,
+               isnull(MRC_CLASS,'BU') AS mrc_class,
+               STC_PARENT AS mrc_parent
+          FROM R5MRCS left join R5STRUCTURES on dbo.R5MRCS.MRC_CODE = dbo.R5STRUCTURES.STC_CHILD
+         where ISNULL(MRC_NOTUSED,'-') = '-'
+           AND MRC_CODE = #{mrcCode}
+    </select>
+
+
+</mapper>

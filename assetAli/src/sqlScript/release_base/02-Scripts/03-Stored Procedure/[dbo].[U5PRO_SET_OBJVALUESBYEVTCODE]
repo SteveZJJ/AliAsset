@@ -1,0 +1,103 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_SET_OBJVALUESBYEVTCODE]
+   @evtCode BIGINT
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE
+   @L_split        NVARCHAR (1) = '#',
+   @L_NULLSTRING   NVARCHAR (1) = '-',
+   @L_PrvRentity   NVARCHAR (4) = 'OBJ';
+DECLARE
+   @acknotes    NVARCHAR (256),
+   @ackobject   NVARCHAR (30),
+   @ackorg      NVARCHAR (15),
+   @property    NVARCHAR (8),
+   @classcode   NVARCHAR (8),
+   @objsql      NVARCHAR (MAX);
+
+BEGIN
+   SET  NOCOUNT ON
+
+   DECLARE
+      CHECKLISTS CURSOR LOCAL FOR
+         SELECT ACKNOTES,
+                OBJCODE,
+                OBJORG,
+                ISNULL (CLASSCODE, '*'),
+                PRVPROPERTY
+           FROM U5FUN_GET_CHECKLISTSBYEVTCODE (@EVTCODE)
+          WHERE PRVPROPERTY IS NOT NULL;
+
+   OPEN checklists
+   FETCH NEXT FROM checklists
+        INTO @acknotes,
+             @ackobject,
+             @ackorg,
+             @classcode,
+             @property
+
+   WHILE @@FETCH_STATUS = 0
+   BEGIN
+      DECLARE @prv_code   NVARCHAR (80);
+      SELECT @prv_code = @ackobject + @L_split + @ackorg
+      EXEC U5PRO_SET_PROPERTYVALUES @property,
+                                    @L_PrvRentity,
+                                    @prv_code,
+                                    @acknotes,
+                                    @classcode
+
+      FETCH NEXT FROM checklists
+           INTO @acknotes,
+                @ackobject,
+                @ackorg,
+                @classcode,
+                @property
+   END
+
+   CLOSE checklists;
+   DEALLOCATE checklists;
+
+   DECLARE
+      objsql CURSOR LOCAL FOR
+         SELECT   'update r5objects set '
+                + (STUFF (
+                      (SELECT ',' + objField + '=N''' + ackNotes + ''' '
+                         FROM U5FUN_GET_CHECKLISTSBYEVTCODE (@evtCode) B
+                        WHERE     B.objcode = A.objcode
+                              AND B.objorg = A.objorg
+                              AND B.objField IS NOT NULL
+                       FOR XML PATH ( '' )),
+                      1,
+                      1,
+                      ''))
+                + ' where obj_code=N'''
+                + objcode
+                + ''' and obj_org=N'''
+                + objorg
+                + ''''
+                   AS sql
+           FROM U5FUN_GET_CHECKLISTSBYEVTCODE (@evtCode) A
+         GROUP BY A.objcode, A.objorg;
+
+
+   OPEN objsql
+   FETCH NEXT FROM objsql   INTO @objsql
+
+   WHILE @@FETCH_STATUS = 0
+   BEGIN
+      EXEC (@objsql)
+      FETCH NEXT FROM objsql   INTO @objsql
+   END
+
+   CLOSE objsql;
+   DEALLOCATE objsql;
+END;
+
+GO

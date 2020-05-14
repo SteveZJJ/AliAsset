@@ -1,0 +1,395 @@
+资产转移，调拨相关接口设计
+一、	创建，更新资产转移单
+	提交生成资产转移单及转移列表，以及更新资产转移单状态接口
+	URL: http://100.69.200.73:9090/alieam/api/transferApply
+	入参实体：
+		@Data
+		public class TransferOrAllocateMessage {
+			private String corp;//组织  evt_org
+			private String actionType;
+			//状态  I-新建插入，UH 更新单据头基本信息 UL 更新转移调拨清单
+			private String ouCode;//所属OU  evt_udfchar08
+			private String department;//归口部门
+			private String personCode;//发起人
+			private String personName;//发起人姓名
+
+
+			private String applicantCode; //申请人工号
+			private String applicantName; //申请人姓名
+			private String receiverCode;  //接收人工号
+			private String receiverName;  //接收人姓名
+			private String ifAgency; //是否代他人申请
+
+			private String evtCode;//资产中台创建的单据号，在更新时需传入
+			private String comments;//申请原因
+			private List <TransferLine> item;//转移调拨单详情
+
+			private String evtJobType;//
+			private String evtStatus;//
+			private String evtDesc;//
+			private String language;//
+
+			private List <Attachment> attachments;//文档清单
+		}
+
+		/**************************************
+         *@ClassName Transfer
+         *@Description 转移单详情行
+         *@Author Steve
+         *@Date 2019年5月6日10:01:12
+         *@Version 1.0
+         **************************************/
+        @Data
+        public class TransferLine {
+        	private String assetCode;//填写大阿里编号
+
+        	private String assetDesc;//资产描述
+
+        	private String assetType;  //资产类别
+
+        	private String fixAssetCode;  //财务资产编号
+
+        	private String ouCode;  //ouCode
+
+        	private String ouName;  //ou描述
+
+        	private String corp; //组织
+
+        	private String usage; //使用说明
+
+        	private String usageDesc; //使用说明描述
+
+        	private String serialNo; //序列号
+
+        	private String featureDesc;  //品牌型号
+
+        	private String ownerDesc; //责任人
+
+        	private String ownerNo;  //责任人工号
+
+        	private String depNo;  //部门编码
+
+        	private String depDesc;  //部门描述
+
+        	private String userNo;  //使用人工号
+
+        	private String userDesc;  //使用人描述
+
+        	private String partCode; //物料编码
+
+        	private String partDesc; //物料编码描述
+
+        	private String assetStatus; //资产状态
+
+        	private String assetStatusDesc; //资产状态描述
+
+        	private String manageType;  //管理归口
+
+        }
+
+    入参实例：
+        1. 创建资产转移单：
+           创建时不传入工单号，actionType为“I”
+        {
+            "corp": "ANTO",
+            "actionType": "I",
+            "ouCode": "A04",
+            "department": "20349",
+            "personCode": "188316",
+            "personName": "xxxx",
+            "item": [
+                {
+                    "assetCode": "TDN000000307613"
+                },
+                {
+                    "assetCode": "TDN000000307612"
+                }
+            ],
+            "comments": "资产转移申请xxxxxxx",
+            "applicantCode": "168886",
+            "receiverCode": "076534",
+            "ifAgency": "+"
+        }
+
+        2. 更新资产转移单
+           更新时传入工号，actionType为“UH”时更新单头，为“UL”时更新单具体行。
+        {
+        	"evtCode": "246021",
+            "corp": "ANTO",
+            "actionType": "UH",
+            "ouCode": "A04",
+            "department": "20349",
+            "personCode": "188316",
+            "personName": "xxxx",
+            "item": [
+                {
+                    "assetCode": "TDN000000307613"
+                },
+                {
+                    "assetCode": "TDN000000307612"
+                }
+            ],
+            "comments": "资产转移申请xxxxxxx",
+            "applicantCode": "168886",
+            "receiverCode": "144959",
+            "ifAgency": "+"
+        }
+    返回实例：
+    	插入成功 {"flag":"S","message":null,"data":{"eventCode":"246021"}}
+		更新成功 {"flag":"S","message":null,"data":{}}
+		失败：{"flag":"E","message":"error","data":{}}
+
+
+二、 查询转移单
+	URL: http://100.69.200.73:9090/alieam/api/queryTransferEvent
+	入参: language 语言标识
+	      evtCode  转移单号
+	返回示例:
+        {
+            "flag": "S",
+            "code": null,
+            "message": null,
+            "data": {
+                "corp": "ANTO",
+                "actionType": null,
+                "ouCode": "A04",
+                "department": "20349",
+                "personCode": "188316",
+                "personName": "xxxx",
+                "applicantCode": "168886",
+                "applicantName": "牛x旭(自x)",
+                "receiverCode": "144959",
+                "receiverName": "周x凤(大x)",
+                "ifAgency": "+",
+                "evtCode": "246021",
+                "comments": "资产转移申请xxxxxxx",
+                "central": null,
+                "item": [
+                    {
+                        "assetCode": "TDN000000307612",
+                        "assetDesc": "笔记本电脑-C0101",
+                        "initDate": "2018-12-14 00:00:00.0"
+                    },
+                    {
+                        "assetCode": "TDN000000307613",
+                        "assetDesc": "笔记本电脑-C0101",
+                        "initDate": "2018-12-14 00:00:00.0"
+                    }
+                ],
+                "evtJobType": "130ZY",
+                "evtStatus": "C",
+                "evtDesc": "xxxx转移申请",
+                "language": null,
+                "attachments": null,
+                "detailType": null,
+                "dueDate": "2019-05-07 18:19:21.02",
+                "corpDesc": "蚂蚁海外",
+                "departmentDesc": "AxtxFxnxnxixl-HxmxnxRxsxuxcx xexaxtxext",
+                "statusDesc": "Completed",
+                "jobTypeDesc": "User Transfer"
+            }
+        }
+
+三、 创建、更新调拨单
+    提交调拨申请单，及更新调拨申请单
+    URL: http://100.69.200.73:9090/alieam/api/allocateApply
+    入参实体:
+        @Data
+        public class TransferOrAllocateMessage {
+        	private String corp;//组织  evt_org
+        	private String actionType;
+        	//状态  I-新建插入，UH 更新单据头基本信息 UL 更新转移调拨清单
+        	private String ouCode;//所属OU  evt_udfchar08
+        	private String department;//归口部门
+        	private String personCode;//发起人
+        	private String personName;//发起人姓名
+
+        	private String fromStore; //调拨来源仓库
+        	private String toStore; //调拨到仓库
+
+
+        	private String evtCode;//资产中台创建的单据号，在更新时需传入
+        	private String comments;//申请原因
+        	private String central; //归口管理
+        	private List <TransferLine> item;//转移调拨单详情
+
+        	private String evtJobType;//
+        	private String evtStatus;//
+        	private String evtDesc;//
+        	private String language;//
+
+        	private List <Attachment> attachments;//文档清单
+        	private String detailType;//子项类型
+
+        	private String dueDate;//申请日期
+        	private String JobTypeDesc; //工单类型描述
+        	private String corpDesc; //组织描述
+        	private String departmentDesc; //部门描述
+        	private String statusDesc; //状态描述
+
+        }
+
+    返回示例:
+        插入成功 {"flag":"S","message":null,"data":{"eventCode":"246021"}}
+        更新成功 {"flag":"S","message":null,"data":{}}
+        失败：{"flag":"E","message":"error","data":{}}
+
+四、 查询调拨单
+    URL: http://100.69.200.73:9090/alieam/api/queryAllocateEvent
+    入参: language 语言标识
+         evtCode 调拨单号
+    返回实体类:
+        public class TransferOrAllocateMessage {
+        	private String corp;//组织  evt_org
+        	private String actionType;
+        	//状态  I-新建插入，UH 更新单据头基本信息 UL 更新转移调拨清单
+        	private String ouCode;//所属OU  evt_udfchar08
+        	private String department;//归口部门
+        	private String personCode;//发起人
+        	private String personName;//发起人姓名
+
+
+        	private String applicantCode; //申请人工号
+        	private String applicantName; //申请人姓名
+        	private String receiverCode;  //接收人工号
+        	private String receiverName;  //接收人姓名
+        	private String ifAgency; //是否代他人申请
+
+        	private String fromStore; //调拨来源仓库
+        	private String fromStoreDesc;
+        	private String toStore; //调拨到仓库
+        	private String toStoreDesc;
+
+        	private String evtCode;//资产中台创建的单据号，在更新时需传入
+        	private String comments;//申请原因
+        	private String central; //归口管理
+        	private List <TransferLine> item;//转移调拨单详情
+
+        	private String evtJobType;//
+        	private String evtStatus;//
+        	private String evtDesc;//
+        	private String language;//
+
+        	private List <Attachment> attachments;//文档清单
+        	private String detailType;//子项类型
+
+        	private String dueDate;//申请日期
+        	private String JobTypeDesc; //工单类型描述
+        	private String corpDesc; //组织描述
+        	private String departmentDesc; //部门描述
+        	private String statusDesc; //状态描述
+
+        }
+
+
+        public class TransferLine {
+            private String assetCode;//填写大阿里编号
+
+        	private String assetDesc;//资产描述
+
+        	private String assetType;  //资产类别
+
+        	private String fixAssetCode;  //财务资产编号
+
+        	private String ouCode;  //ouCode
+
+        	private String corp; //组织
+
+        	private String serialNo; //序列号
+
+        	private String featureDesc;  //品牌型号
+
+        	private String ownerDesc; //责任人
+
+        	private String ownerNo;  //责任人工号
+
+        	private String depNo;  //部门编码
+
+        	private String depDesc;  //部门描述
+
+        	private String userNo;  //使用人工号
+
+        	private String userDesc;  //使用人描述
+
+        	private String partCode; //物料编码
+
+        	private String partDesc; //物料编码描述
+
+        	private String assetStatus; //资产状态
+
+        	private String assetStatusDesc; //资产状态描述
+
+
+        }
+
+    返回示例:
+         {
+             "flag": "S",
+             "code": null,
+             "message": null,
+             "data": {
+                 "corp": "ANTO",
+                 "actionType": null,
+                 "ouCode": null,
+                 "department": null,
+                 "personCode": "WB424493",
+                 "personName": "张x京",
+                 "applicantCode": null,
+                 "applicantName": null,
+                 "receiverCode": null,
+                 "receiverName": null,
+                 "ifAgency": null,
+                 "fromStore": "ANTO1",
+                 "fromStoreDesc": "Singapore Office ANTO IT",
+                 "toStore": "ANTOREPOIT",
+                 "toStoreDesc": "蚂蚁海外虚拟IT仓库",
+                 "evtCode": "10002",
+                 "comments": "XXXXXXXX调拨申请",
+                 "central": null,
+                 "item": [
+                     {
+                         "assetCode": "TDN000000308059",
+                         "assetDesc": "XXXXX",
+                         "assetType": "S0000258",
+                         "fixAssetCode": "123456789",
+                         "ouCode": "A04",
+                         "ouName": null,
+                         "corp": "ANTO",
+                         "usage": null,
+                         "usageDesc": null,
+                         "faAssetType": null,
+                         "originValue": null,
+                         "netValue": null,
+                         "usageMonth": null,
+                         "scrapMonth": null,
+                         "scrapDesc": null,
+                         "initDate": null,
+                         "ifScrap": null,
+                         "serialNo": "321654987",
+                         "featureDesc": "BRAND-MODEL",
+                         "ownerDesc": "张x京",
+                         "ownerNo": "WB424493",
+                         "depNo": "02010",
+                         "depDesc": "?",
+                         "userNo": "WB424493",
+                         "userDesc": "张x京",
+                         "partCode": "S0000258",
+                         "partDesc": "Laptops",
+                         "assetStatus": "I01",
+                         "assetStatusDesc": "In Use-Normal",
+                         "manageType": null
+                     }
+                 ],
+                 "evtJobType": "FRONT",
+                 "evtStatus": "U",
+                 "evtDesc": "测试TEST仓库请购",
+                 "language": null,
+                 "attachments": null,
+                 "detailType": null,
+                 "dueDate": "2019-05-08 00:00:00.0",
+                 "corpDesc": "蚂蚁海外",
+                 "departmentDesc": null,
+                 "statusDesc": "Unfinished",
+                 "jobTypeDesc": "?"
+             }
+         }

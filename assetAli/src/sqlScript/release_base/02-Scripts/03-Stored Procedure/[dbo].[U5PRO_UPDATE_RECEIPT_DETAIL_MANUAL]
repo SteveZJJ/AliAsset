@@ -1,0 +1,137 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_UPDATE_RECEIPT_DETAIL_MANUAL]
+  @receiptNo  NVARCHAR(30) OUTPUT
+ ,@locId      NVARCHAR(40)
+ ,@workNo     NVARCHAR(30)
+ ,@ifStore    NVARCHAR(40)
+ ,@usageNote  NVARCHAR(40)
+ ,@newType    NVARCHAR(40)
+ ,@ownerShip  NVARCHAR(40)
+ ,@poNumber   NVARCHAR(80)
+ ,@locDetail  NVARCHAR(40)
+ ,@storeId    NVARCHAR(80)
+ ,@model      NVARCHAR(30)
+ ,@serialNo   NVARCHAR(30)
+ ,@corp       NVARCHAR(30) OUTPUT
+ ,@brand      NVARCHAR(30)
+ ,@supplierName NVARCHAR(80)
+ ,@respNo     NVARCHAR(80)
+ ,@userNo     NVARCHAR(80)
+ ,@ouCode     NVARCHAR(80)
+ ,@currencyCode NVARCHAR(30)
+ ,@taxInclusive NVARCHAR(30)
+ ,@unitPrice  NUMERIC(18,2)
+ ,@acceptDate NVARCHAR(50)
+ ,@unitPriceTaxIncluded  NVARCHAR(30)
+ ,@taxRate  NVARCHAR(30)
+ ,@amountTaxIncluded  NVARCHAR(30)
+ ,@standardCoin  NVARCHAR(30)
+ ,@withTaxPrice  NVARCHAR(30)
+ ,@noTaxPrice  NVARCHAR(30)
+ ,@rate  NVARCHAR(30)
+ ,@calDate  NVARCHAR(30)
+  WITH
+  EXEC AS CALLER
+AS
+DECLARE 
+  @ncount int
+ ,@flag NVARCHAR(1) = N'S'
+ ,@message NVARCHAR(2000)
+ ,@chkStore NVARCHAR(2)
+BEGIN
+  BEGIN TRY
+--   SET @ncount = 0;
+   SELECT @ncount = count(1)
+     FROM R5EVENTS
+    where EVT_CODE = @receiptNo
+    
+--    IF @ifStore = N'Y'
+--      BEGIN
+--        set @chkStore = '+';
+--      END
+--    ELSE IF @ifStore = N'N'
+--      BEGIN
+--        set @chkStore = '-';
+--      END
+    
+  IF @ncount = 0
+    BEGIN
+       SELECT
+        @flag    = 'E'
+       ,@message = N'验收单不存在'
+    END
+  ELSE
+    BEGIN
+      UPDATE R5EVENTS SET
+         
+         EVT_OBJECT = @locId -- nvarchar(30)
+        ,EVT_OBJECT_ORG = '*'
+        ,EVT_ORIGIN = @workNo
+        ,EVT_UDFCHKBOX01 = @ifStore
+        ,EVT_UDFCHAR07 = @usageNote
+        ,EVT_UDFCHAR21 = @ownerShip
+        ,EVT_UDFCHAR10 = @poNumber
+        ,EVT_UDFCHAR11 = @locDetail
+        ,EVT_UDFCHAR15 = (SELECT top 1 PER_MRC FROM R5PERSONNEL WHERE PER_CODE = @workNo)
+        ,EVT_UDFCHAR16 = @storeId
+        ,EVT_UDFDATE02 = CONVERT(datetime, @acceptDate, 20)
+        ,EVT_UDFCHAR13 = @unitPriceTaxIncluded
+        ,EVT_UDFCHAR14 = @taxRate
+        ,EVT_UDFCHAR17 = @amountTaxIncluded
+      WHERE EVT_CODE = @receiptNo
+      
+      UPDATE R5OBJECTS SET 
+         OBJ_MANUFACTMODEL = @model
+        ,OBJ_SERIALNO = @serialNo
+        ,OBJ_ORG = @corp
+        ,OBJ_STORE = @storeId
+        ,OBJ_UDFCHAR03 = @ouCode
+        ,OBJ_UDFCHAR04 = @newType
+        ,OBJ_UDFCHAR05 = @brand
+        ,OBJ_UDFCHAR06 = @supplierName
+        ,OBJ_UDFCHAR07 = @usageNote
+        ,OBJ_UDFCHAR10 = @poNumber
+        ,OBJ_UDFCHAR12 = @respNo
+        ,obj_udfchar22 = dbo.R5O7_O7GET_DESC ('ZH','PERS',
+                                                   @respNo,
+                                                   '',
+                                                   '')
+        ,OBJ_UDFCHAR13 = @userNo
+        ,OBJ_UDFCHAR14 = (SELECT top 1 PER_MRC FROM R5PERSONNEL WHERE PER_CODE = @workNo)
+        ,OBJ_UDFCHAR15 = @locId
+        ,OBJ_UDFCHAR30 = @currencyCode
+        ,OBJ_UDFCHKBOX02 = @taxInclusive
+        ,OBJ_VALUE = @unitPrice
+        ,OBJ_BIN = '*'
+        ,OBJ_COMMISS = CONVERT(datetime, @acceptDate, 20)
+        ,OBJ_UDFCHAR08 = @ownerShip
+        ,OBJ_UDFCHAR27 = @locDetail
+        ,OBJ_UDFCHAR35 = @standardCoin
+        ,OBJ_UDFCHAR36 = @withTaxPrice
+        ,OBJ_UDFCHAR37 = @noTaxPrice
+        ,OBJ_UDFCHAR38 = @rate
+        ,OBJ_UDFCHAR39 = @calDate
+      WHERE OBJ_CODE IN (SELECT EVT_OBJECT FROM R5EVENTS WHERE EVT_PARENT = @receiptNo)
+        
+    END
+    
+   END TRY
+   BEGIN CATCH
+      SELECT @flag = 'E',
+             @message = ERROR_MESSAGE ();
+   END CATCH
+   
+                  ---以便Mybatis获取返回结果。
+  SELECT @flag AS flag
+ ,@message AS message
+ ,@receiptNo receiptNo
+ ,@corp corp;
+END;
+
+GO

@@ -1,0 +1,4265 @@
+/****** Object: Table [dbo].[U5PERSONEL_SYNC]   Script Date: 2019/2/22 16:09:37 ******/
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+CREATE TABLE [dbo].[U5PERSONEL_SYNC] (
+[PES_CODE] nvarchar(50) NOT NULL,
+[PES_DESC] nvarchar(80) NULL,
+[PES_MRC] nvarchar(50) NULL,
+[PES_SYNCSTATUS] nvarchar(8) NULL,
+[PES_SYNCMESSAGE] nvarchar(2000) NULL,
+[PES_SQLIDENTITY] int IDENTITY(1, 1) NOT NULL,
+[PES_NOTUSED] nvarchar(8) NULL)
+ON [PRIMARY]
+WITH (DATA_COMPRESSION = NONE);
+GO
+ALTER TABLE [dbo].[U5PERSONEL_SYNC] SET (LOCK_ESCALATION = TABLE);
+GO
+
+
+/****** Object: Table [dbo].[U5MRC_SYNC]   Script Date: 2019/2/22 16:09:54 ******/
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+CREATE TABLE [dbo].[U5MRC_SYNC] (
+[MRS_SQLIDENTITY] int IDENTITY(1, 1) NOT NULL,
+[MRS_CODE] nvarchar(50) NULL,
+[MRS_DESC] nvarchar(80) NULL,
+[MRS_CLASS] nvarchar(30) NULL,
+[MRS_SYNCSTATUS] nvarchar(8) NULL,
+[MRS_SYNCMESSAGE] nvarchar(2000) NULL,
+[MRS_FULLDESC] nvarchar(80) NULL,
+[MRS_PARENT] nvarchar(80) NULL,
+[MRS_NOTUSED] nvarchar(8) NULL,
+[MRS_DESCEN] nvarchar(80) NULL)
+ON [PRIMARY]
+WITH (DATA_COMPRESSION = NONE);
+GO
+ALTER TABLE [dbo].[U5MRC_SYNC] SET (LOCK_ESCALATION = TABLE);
+GO
+
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE TRIGGER [dbo].[U5PREINS_UPDATEMRC] ON [dbo].[U5MRC_SYNC]
+AFTER INSERT
+AS
+
+DECLARE @MRSCODE  NVARCHAR(50)
+DECLARE @MRSDESC  NVARCHAR(80)
+DECLARE @MRSCLASS   NVARCHAR(50)
+DECLARE @MRSSYNCSTATUS  NVARCHAR(8)
+DECLARE @MRSSYNCMESSAGE  NVARCHAR(2000)
+DECLARE @MRSSQLIDENTITY  INT
+DECLARE @MRSFULLDESC  NVARCHAR(80)
+DECLARE @MRSPARENT  NVARCHAR(80)
+DECLARE @MRSNOTUSED  NVARCHAR(8)
+DECLARE @MRSDESCEN  NVARCHAR(80)
+
+DECLARE @NCOUNT INT
+DECLARE @NCOUNT1 INT
+
+IF @@ROWCOUNT > 0
+  BEGIN
+    SET NOCOUNT ON
+ 
+    DECLARE
+      C_INSERTED CURSOR LOCAL FOR
+        SELECT
+         i.MRS_CODE,
+         i.MRS_DESC,
+         i.MRS_CLASS,
+         i.MRS_SYNCSTATUS,
+         i.MRS_SYNCMESSAGE,
+         i.MRS_SQLIDENTITY,
+         i.MRS_FULLDESC,
+         i.MRS_PARENT,
+         i.MRS_NOTUSED,
+         i.MRS_DESCEN
+        FROM
+          INSERTED i
+
+    OPEN C_INSERTED
+    FETCH NEXT FROM C_INSERTED
+      INTO
+        @MRSCODE
+       ,@MRSDESC
+       ,@MRSCLASS
+       ,@MRSSYNCSTATUS
+       ,@MRSSYNCMESSAGE
+       ,@MRSSQLIDENTITY
+       ,@MRSFULLDESC
+       ,@MRSPARENT
+       ,@MRSNOTUSED
+       ,@MRSDESCEN
+       
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+      SET @NCOUNT = 0
+      SELECT
+      @NCOUNT = COUNT(1)
+      FROM
+      R5MRCS
+      WHERE
+      MRC_CODE = @MRSCODE;
+            
+      IF @NCOUNT > 0 
+      BEGIN
+--        BEGIN TRY
+        
+--          BEGIN TRAN;
+        
+          SELECT
+          @NCOUNT1 = COUNT(1)
+          FROM
+          R5MRCS A, R5PROPERTYVALUES B
+          WHERE
+          A.MRC_CODE = B.PRV_CODE
+          AND
+          B.PRV_PROPERTY = N'MRCDESC'
+          AND
+          A.MRC_CODE = @MRSCODE
+          AND
+          (A.MRC_DESC <> @MRSDESC or B.PRV_VALUE <> @MRSFULLDESC); 
+          
+          SELECT 
+            @NCOUNT1 = @NCOUNT1 + COUNT(1)
+          FROM 
+            R5DESCRIPTIONS
+          WHERE
+            DES_CODE = @MRSCODE
+          AND
+            DES_LANG = N'EN'
+          AND
+            DES_RENTITY = N'MRC'
+          AND
+            DES_TEXT <> @MRSDESCEN
+            
+          SELECT
+            @NCOUNT1 = @NCOUNT1 + COUNT(1)
+          FROM
+            R5ADDRESS
+          WHERE
+            ADR_RENTITY = N'MRC'
+          AND
+            ADR_CODE = @MRSCODE
+          AND
+            ((ADR_RTYPE = N'M' AND ADR_TEXT <> @MRSDESCEN) OR (ADR_RTYPE = N'D' AND ADR_TEXT <> @MRSDESC))
+          
+          SELECT
+            @NCOUNT1 = @NCOUNT1 + COUNT(1)
+          FROM
+            R5OBJECTS
+          WHERE
+            OBJ_OBTYPE = 'ZZJG'
+          AND 
+            OBJ_CODE = @MRSCODE
+          AND
+            (OBJ_DESC <> @MRSDESC OR OBJ_NOTUSED <> @MRSNOTUSED OR OBJ_MRC <> @MRSCODE)
+          
+          SELECT
+            @NCOUNT1 = @NCOUNT1 + COUNT(1)
+          FROM
+            R5STRUCTURES
+          WHERE
+            STC_CHILD = @MRSCODE
+          AND
+            STC_CHILDTYPE = N'ZZJG'
+          AND
+            STC_PARENT <> @MRSPARENT
+        
+
+          IF @NCOUNT1 > 0 
+          BEGIN
+            UPDATE
+              R5MRCS
+            SET
+              MRC_DESC = @MRSDESC
+             --,MRC_CLASS  = @MRSCLASS
+             ,MRC_NOTUSED = @MRSNOTUSED
+            WHERE
+              MRC_CODE = @MRSCODE   
+              
+            UPDATE
+              R5PROPERTYVALUES
+            SET
+              PRV_VALUE = @MRSFULLDESC
+            WHERE
+              PRV_PROPERTY = 'MRCDESC' AND
+              PRV_CODE = @MRSCODE   
+              
+            UPDATE R5DESCRIPTIONS SET
+              DES_TEXT = @MRSDESCEN -- nvarchar(80)
+            WHERE DES_RENTITY = N'MRC' -- nvarchar(4)
+              AND DES_RTYPE = N'*' -- nvarchar(4)
+              AND DES_CODE = @MRSCODE -- nvarchar(100)
+              AND DES_LANG = N'EN' -- nvarchar(2)
+            
+            UPDATE R5ADDRESS SET
+               ADR_TEXT = @MRSDESCEN -- nvarchar(2000)   
+            WHERE ADR_RENTITY = N'MRC' -- nvarchar(4)
+              AND ADR_CODE = @MRSCODE -- nvarchar(50)
+              AND ADR_RTYPE = N'M' -- nvarchar(4)
+              
+            UPDATE R5ADDRESS SET
+               ADR_TEXT = @MRSDESC -- nvarchar(2000)   
+            WHERE ADR_RENTITY = N'MRC' -- nvarchar(4)
+              AND ADR_CODE = @MRSCODE -- nvarchar(50)
+              AND ADR_RTYPE = N'D' -- nvarchar(4)
+              
+            UPDATE R5OBJECTS SET 
+               OBJ_DESC = @MRSDESC
+              ,OBJ_NOTUSED = @MRSNOTUSED
+              ,OBJ_MRC = @MRSCODE
+            WHERE OBJ_OBTYPE = 'ZZJG'
+              AND OBJ_CODE = @MRSCODE
+              
+            UPDATE R5STRUCTURES SET
+               STC_PARENT = @MRSPARENT -- nvarchar(30)
+            WHERE STC_CHILD = @MRSCODE -- nvarchar(30)  
+            
+            DELETE FROM
+              U5MRC_SYNC
+            WHERE
+              MRS_SQLIDENTITY = @MRSSQLIDENTITY;
+          END  
+--          COMMIT TRAN;
+--        END TRY
+--        BEGIN CATCH
+--          ROLLBACK TRAN;
+--          PRINT ERROR_MESSAGE()
+--          UPDATE
+--            U5MRC_SYNC
+--          SET
+--            MRS_SYNCMESSAGE = ERROR_MESSAGE()
+--           ,MRS_SYNCSTATUS  = 'E'
+--          WHERE
+--            MRS_SQLIDENTITY = @MRSSQLIDENTITY      
+--        END CATCH
+      END
+      ELSE
+      BEGIN
+        INSERT INTO R5MRCS (
+           MRC_CODE
+          ,MRC_DESC
+          --,MRC_CLASS
+          ,MRC_ORG
+          --,MRC_CLASS_ORG
+          ,MRC_NOTUSED
+        ) VALUES (
+           @MRSCODE -- MRC_CODE - nvarchar(15)
+          ,@MRSDESC -- MRC_DESC - nvarchar(80)
+          --,@MRSCLASS
+          ,'*'
+          --,'*'
+          ,@MRSNOTUSED
+        ) 
+        INSERT INTO R5PROPERTYVALUES (
+           PRV_PROPERTY
+          ,PRV_RENTITY
+          ,PRV_CLASS
+          ,PRV_CODE
+          ,PRV_SEQNO
+          ,PRV_VALUE
+          ,PRV_NVALUE
+          ,PRV_DVALUE
+          ,PRV_CLASS_ORG
+          ,PRV_CREATED
+          ,PRV_NOTUSED
+        ) VALUES (
+           'MRCDESC' -- PRV_PROPERTY - nvarchar(8)
+          ,'MRC' -- PRV_RENTITY - nvarchar(4)
+          ,'*' -- PRV_CLASS - nvarchar(8)
+          ,@MRSCODE -- PRV_CODE - nvarchar(100)
+          ,1 -- PRV_SEQNO - numeric(38, 0)
+          ,@MRSFULLDESC -- PRV_VALUE - nvarchar(80)
+          ,NULL -- PRV_NVALUE - numeric(24, 6)
+          ,NULL -- PRV_DVALUE - datetime
+          ,'*' -- PRV_CLASS_ORG - nvarchar(15)
+          ,GETDATE() -- PRV_CREATED - datetime
+          ,'-' -- PRV_NOTUSED - nvarchar(1)
+        )
+        
+        --插入description
+        UPDATE R5DESCRIPTIONS SET
+          DES_TEXT = @MRSDESCEN
+        WHERE
+          DES_ENTITY = N'MRC'
+        AND
+          DES_RENTITY = N'MRC'
+        AND
+          DES_TYPE = N'*'
+        AND
+          DES_RTYPE = N'*'
+        AND
+          DES_CODE = @MRSCODE
+        AND
+          DES_LANG = 'EN'
+        
+        --插入Address
+        INSERT INTO R5ADDRESS (
+           ADR_RENTITY
+          ,ADR_CODE
+          ,ADR_RTYPE
+          ,ADR_TEXT
+        ) VALUES (
+           N'MRC' -- ADR_RENTITY - nvarchar(4)
+          ,@MRSCODE -- ADR_CODE - nvarchar(50)
+          ,N'M' -- ADR_RTYPE - nvarchar(4)
+          ,@MRSDESCEN -- ADR_TEXT - nvarchar(2000)
+        )
+        INSERT INTO R5ADDRESS (
+           ADR_RENTITY
+          ,ADR_CODE
+          ,ADR_RTYPE
+          ,ADR_TEXT
+        ) VALUES (
+           N'MRC' -- ADR_RENTITY - nvarchar(4)
+          ,@MRSCODE -- ADR_CODE - nvarchar(50)
+          ,N'D' -- ADR_RTYPE - nvarchar(4)
+          ,@MRSDESC -- ADR_TEXT - nvarchar(2000)
+        )
+        --插入OBJECTS
+        INSERT INTO R5OBJECTS(
+                    OBJ_CODE
+                   ,OBJ_OBTYPE
+                   ,OBJ_NOTUSED
+                   ,OBJ_DESC
+                   ,OBJ_STATUS
+                   ,OBJ_MRC
+                   ,OBJ_ORG
+                   ,OBJ_GROUP
+                   ,OBJ_USER)
+                VALUES
+                  (
+                    @MRSCODE
+                   ,'ZZJG'
+                   ,@MRSNOTUSED
+                   ,@MRSDESC
+                   ,'I'
+                   ,@MRSCODE
+                   ,'*'
+                   ,'R5'
+                   ,'R5')
+        --插入STRUCTURES
+        INSERT INTO R5STRUCTURES (
+           STC_CHILDTYPE
+          ,STC_CHILDRTYPE
+          ,STC_CHILD
+          ,STC_PARENTTYPE
+          ,STC_PARENTRTYPE
+          ,STC_PARENT
+          ,STC_ROLLDOWN
+          ,STC_ROLLUP
+          ,STC_EQUIVALENT
+          ,STC_DOWNTIME
+          ,STC_CHILD_ORG
+          ,STC_PARENT_ORG
+        ) VALUES (
+           'ZZJG' -- STC_CHILDTYPE - nvarchar(4)
+          ,'S' -- STC_CHILDRTYPE - nvarchar(4)
+          ,@MRSCODE -- STC_CHILD - nvarchar(30)
+          ,'ZZJG' -- STC_PARENTTYPE - nvarchar(4)
+          ,'S' -- STC_PARENTRTYPE - nvarchar(4)
+          ,@MRSPARENT -- STC_PARENT - nvarchar(30)
+          ,'-' -- STC_ROLLDOWN - nvarchar(1)
+          ,'-' -- STC_ROLLUP - nvarchar(1)
+          ,'-' -- STC_EQUIVALENT - nvarchar(1)
+          ,'-' -- STC_DOWNTIME - nvarchar(1)
+          ,N'*' -- STC_CHILD_ORG - nvarchar(15)
+          ,N'*' -- STC_PARENT_ORG - nvarchar(15)
+        )
+        
+        
+        DELETE FROM
+          U5MRC_SYNC
+        WHERE
+          MRS_SQLIDENTITY = @MRSSQLIDENTITY;       
+               
+      END
+             
+    FETCH NEXT FROM C_INSERTED
+      INTO
+        @MRSCODE
+       ,@MRSDESC
+       ,@MRSCLASS
+       ,@MRSSYNCSTATUS
+       ,@MRSSYNCMESSAGE
+       ,@MRSSQLIDENTITY
+       ,@MRSFULLDESC
+       ,@MRSPARENT
+       ,@MRSNOTUSED
+       ,@MRSDESCEN
+
+    END
+    CLOSE C_INSERTED
+    DEALLOCATE C_INSERTED
+  END
+
+GO
+
+
+
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE TRIGGER [dbo].[U5PREINS_UPDATEPERSON] ON [dbo].[U5PERSONEL_SYNC]
+AFTER INSERT
+AS
+/*test deployment */
+DECLARE @MRCCODE  NVARCHAR(80)
+DECLARE @PESCODE  NVARCHAR(50)
+DECLARE @PESDESC  NVARCHAR(80)
+DECLARE @PESMRC   NVARCHAR(50)
+DECLARE @PESSYNCSTATUS  NVARCHAR(8)
+DECLARE @PESSYNCMESSAGE  NVARCHAR(2000)
+DECLARE @PESSQLIDENTITY  INT
+DECLARE @PESNOTUSED NVARCHAR(8)
+
+DECLARE @NCOUNT INT
+DECLARE @NCOUNT1 INT
+
+IF @@ROWCOUNT > 0
+  BEGIN
+    SET NOCOUNT ON
+    --先校验全部同步员工的部门是否已经存在
+    
+    DECLARE
+      C_MRC CURSOR LOCAL FOR
+        SELECT
+         DISTINCT i.PES_MRC
+        FROM
+          INSERTED i
+    OPEN C_MRC
+    FETCH NEXT FROM C_MRC
+      INTO
+        @MRCCODE 
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+    
+      SELECT @NCOUNT = COUNT(1) FROM R5MRCS WHERE MRC_CODE = @MRCCODE;
+      IF @NCOUNT = 0
+        INSERT INTO R5MRCS (
+               MRC_CODE
+              ,MRC_DESC
+              ,MRC_CLASS
+              ,MRC_ORG
+              ,MRC_CLASS_ORG
+            
+            ) VALUES (
+               @MRCCODE -- MRC_CODE - nvarchar(15)
+              ,@MRCCODE -- MRC_DESC - nvarchar(80)
+              ,'*'
+              ,'*'
+              ,'*'
+            ) 
+    
+    FETCH NEXT FROM C_MRC
+      INTO
+        @MRCCODE 
+    END
+    CLOSE C_MRC
+    DEALLOCATE C_MRC
+
+    DECLARE
+      C_INSERTED CURSOR LOCAL FOR
+        SELECT
+         i.PES_CODE,
+         i.PES_DESC,
+         i.PES_MRC,
+         i.PES_SYNCSTATUS,
+         i.PES_SYNCMESSAGE,
+         i.PES_SQLIDENTITY,
+         i.PES_NOTUSED
+        FROM
+          INSERTED i
+
+    OPEN C_INSERTED
+    FETCH NEXT FROM C_INSERTED
+      INTO
+        @PESCODE
+       ,@PESDESC
+       ,@PESMRC
+       ,@PESSYNCSTATUS
+       ,@PESSYNCMESSAGE
+       ,@PESSQLIDENTITY
+       ,@PESNOTUSED
+       
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+      SET @NCOUNT = 0
+      SELECT
+      @NCOUNT = COUNT(1)
+      FROM
+      R5PERSONNEL
+      WHERE
+      PER_CODE = @PESCODE;
+            
+      IF @NCOUNT > 0 
+      BEGIN
+        BEGIN TRY
+        
+          --BEGIN TRAN;
+          
+          SELECT
+          @NCOUNT1 = COUNT(1)
+          FROM
+          R5PERSONNEL
+          WHERE
+          PER_CODE = @PESCODE
+          AND
+          (PER_DESC <> @PESDESC or PER_MRC <> @PESMRC OR PER_NOTUSED <> @PESNOTUSED); 
+          
+          IF @NCOUNT1 > 0 
+          BEGIN
+            UPDATE
+              R5PERSONNEL
+            SET
+              PER_DESC = @PESDESC
+             ,PER_MRC  = @PESMRC
+             ,PER_NOTUSED = ISNULL(@PESNOTUSED,PER_NOTUSED)
+            WHERE
+              PER_CODE = @PESCODE   
+            
+            DELETE FROM
+              U5PERSONEL_SYNC
+            WHERE
+              PES_SQLIDENTITY = @PESSQLIDENTITY;
+          END 
+          --COMMIT TRAN;
+        END TRY
+        BEGIN CATCH
+          --ROLLBACK TRAN;
+          PRINT ERROR_MESSAGE()
+          UPDATE
+            U5PERSONEL_SYNC
+          SET
+            PES_SYNCMESSAGE = ERROR_MESSAGE()
+           ,PES_SYNCSTATUS  = 'E'
+          WHERE
+            PES_SQLIDENTITY = @PESSQLIDENTITY      
+        END CATCH
+      END
+      ELSE
+      BEGIN
+        INSERT INTO r5personnel(PER_CODE,
+                                  PER_DESC,
+                                  PER_MRC,
+                                  PER_TRADE,
+                                  PER_NOTUSED,
+                                  PER_ORG,
+                                  PER_CREATED)
+        VALUES(@PESCODE,
+               ISNULL (@PESDESC, '-'),
+               @PESMRC,
+               '*',
+               '-',
+               '*',
+               getdate ());
+        DELETE FROM
+          U5PERSONEL_SYNC
+        WHERE
+          PES_SQLIDENTITY = @PESSQLIDENTITY;       
+               
+      END
+             
+    FETCH NEXT FROM C_INSERTED
+      INTO
+        @PESCODE
+       ,@PESDESC
+       ,@PESMRC
+       ,@PESSYNCSTATUS
+       ,@PESSYNCMESSAGE
+       ,@PESSQLIDENTITY
+       ,@PESNOTUSED
+
+    END
+    CLOSE C_INSERTED
+    DEALLOCATE C_INSERTED
+  END
+
+GO
+
+
+/****** Object: Procedure [dbo].[U5PRO_CREATE_MRC]   Script Date: 2019/2/22 16:10:53 ******/
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE PROCEDURE [dbo].[U5PRO_CREATE_MRC]
+@mrcCode nvarchar(15), @mrcDesc nvarchar(80), @mrcClass nvarchar(50), @mrcFullDesc nvarchar(80), @mrcParent nvarchar(80), @mrcDescEn  nvarchar(80), @mrcNotUsed  nvarchar(10)
+WITH EXEC AS CALLER
+/*****
+Create by Steve Zhang
+2019年1月26日03:12:07
+检查部门是否存在，不存在则创建
+******/
+AS
+  declare @ncount int
+  declare @ncount1 int
+  declare @flag nvarchar(2)
+  declare @message nvarchar(3000)
+begin
+   SELECT @ncount = count (1)
+   FROM R5MRCS
+   WHERE MRC_CODE = @mrcCode;
+
+   IF @ncount = 0
+      BEGIN
+        --插入MRC
+        INSERT INTO R5MRCS (
+           MRC_CODE
+          ,MRC_DESC
+          --,MRC_CLASS
+          ,MRC_ORG
+          --,MRC_CLASS_ORG
+          ,MRC_NOTUSED
+        ) VALUES (
+           @mrcCode -- MRC_CODE - nvarchar(15)
+          ,@mrcDesc -- MRC_DESC - nvarchar(80)
+          --,@mrcClass
+          ,'*'
+          --,'*'
+          ,@mrcNotUsed
+        ) 
+        
+        --插入description
+        UPDATE R5DESCRIPTIONS SET
+          DES_TEXT = @mrcDescEn
+        WHERE
+          DES_ENTITY = N'MRC'
+        AND
+          DES_RENTITY = N'MRC'
+        AND
+          DES_TYPE = N'*'
+        AND
+          DES_RTYPE = N'*'
+        AND
+          DES_CODE = @mrcCode
+        AND
+          DES_LANG = 'EN'
+        
+        --插入Address
+        INSERT INTO R5ADDRESS (
+           ADR_RENTITY
+          ,ADR_CODE
+          ,ADR_RTYPE
+          ,ADR_TEXT
+        ) VALUES (
+           N'MRC' -- ADR_RENTITY - nvarchar(4)
+          ,@mrcCode -- ADR_CODE - nvarchar(50)
+          ,N'M' -- ADR_RTYPE - nvarchar(4)
+          ,@mrcDescEn -- ADR_TEXT - nvarchar(2000)
+        )
+        INSERT INTO R5ADDRESS (
+           ADR_RENTITY
+          ,ADR_CODE
+          ,ADR_RTYPE
+          ,ADR_TEXT
+        ) VALUES (
+           N'MRC' -- ADR_RENTITY - nvarchar(4)
+          ,@mrcCode -- ADR_CODE - nvarchar(50)
+          ,N'D' -- ADR_RTYPE - nvarchar(4)
+          ,@mrcDesc -- ADR_TEXT - nvarchar(2000)
+        )
+        --插入OBJECTS
+        INSERT INTO R5OBJECTS(
+                    OBJ_CODE
+                   ,OBJ_OBTYPE
+                   ,OBJ_NOTUSED
+                   ,OBJ_DESC
+                   ,OBJ_STATUS
+                   ,OBJ_MRC
+                   ,OBJ_ORG
+                   ,OBJ_GROUP
+                   ,OBJ_USER)
+                VALUES
+                  (
+                    @mrcCode
+                   ,'ZZJG'
+                   ,@mrcNotUsed
+                   ,@mrcDesc
+                   ,'I'
+                   ,@mrcCode
+                   ,'*'
+                   ,'R5'
+                   ,'R5')
+        --插入STRUCTURES
+        INSERT INTO R5STRUCTURES (
+           STC_CHILDTYPE
+          ,STC_CHILDRTYPE
+          ,STC_CHILD
+          ,STC_PARENTTYPE
+          ,STC_PARENTRTYPE
+          ,STC_PARENT
+          ,STC_ROLLDOWN
+          ,STC_ROLLUP
+          ,STC_EQUIVALENT
+          ,STC_DOWNTIME
+          ,STC_CHILD_ORG
+          ,STC_PARENT_ORG
+        ) VALUES (
+           'ZZJG' -- STC_CHILDTYPE - nvarchar(4)
+          ,'S' -- STC_CHILDRTYPE - nvarchar(4)
+          ,@mrcCode -- STC_CHILD - nvarchar(30)
+          ,'ZZJG' -- STC_PARENTTYPE - nvarchar(4)
+          ,'S' -- STC_PARENTRTYPE - nvarchar(4)
+          ,@mrcParent -- STC_PARENT - nvarchar(30)
+          ,'-' -- STC_ROLLDOWN - nvarchar(1)
+          ,'-' -- STC_ROLLUP - nvarchar(1)
+          ,'-' -- STC_EQUIVALENT - nvarchar(1)
+          ,'-' -- STC_DOWNTIME - nvarchar(1)
+          ,N'*' -- STC_CHILD_ORG - nvarchar(15)
+          ,N'*' -- STC_PARENT_ORG - nvarchar(15)
+        )
+        INSERT INTO R5PROPERTYVALUES (
+           PRV_PROPERTY
+          ,PRV_RENTITY
+          ,PRV_CLASS
+          ,PRV_CODE
+          ,PRV_SEQNO
+          ,PRV_VALUE
+          ,PRV_NVALUE
+          ,PRV_DVALUE
+          ,PRV_CLASS_ORG
+          ,PRV_CREATED
+          ,PRV_NOTUSED
+        ) VALUES (
+           'MRCDESC' -- PRV_PROPERTY - nvarchar(8)
+          ,'MRC' -- PRV_RENTITY - nvarchar(4)
+          ,'*' -- PRV_CLASS - nvarchar(8)
+          ,@mrcCode -- PRV_CODE - nvarchar(100)
+          ,1 -- PRV_SEQNO - numeric(38, 0)
+          ,@mrcFullDesc -- PRV_VALUE - nvarchar(80)
+          ,NULL -- PRV_NVALUE - numeric(24, 6)
+          ,NULL -- PRV_DVALUE - datetime
+          ,'*' -- PRV_CLASS_ORG - nvarchar(15)
+          ,GETDATE() -- PRV_CREATED - datetime
+          ,'-' -- PRV_NOTUSED - nvarchar(1)
+        )
+        SELECT @flag = N'S'; 
+      END
+      ELSE
+      BEGIN
+        UPDATE
+          R5MRCS
+        SET
+          MRC_DESC = @mrcDesc
+         --,MRC_CLASS  = @mrcClass
+         ,MRC_NOTUSED = @mrcNotUsed
+        WHERE
+          MRC_CODE = @mrcCode   
+          
+        UPDATE
+          R5PROPERTYVALUES
+        SET
+          PRV_VALUE = @mrcFullDesc
+        WHERE
+          PRV_PROPERTY = 'MRCDESC' AND
+          PRV_CODE = @mrcCode  
+        
+        UPDATE R5DESCRIPTIONS SET
+           DES_TEXT = @mrcDescEn -- nvarchar(80)
+        WHERE DES_RENTITY = N'MRC' -- nvarchar(4)
+          AND DES_RTYPE = N'*' -- nvarchar(4)
+          AND DES_CODE = @mrcCode -- nvarchar(100)
+          AND DES_LANG = N'EN' -- nvarchar(2)
+        
+        UPDATE R5ADDRESS SET
+           ADR_TEXT = @mrcDescEn -- nvarchar(2000)   
+        WHERE ADR_RENTITY = N'MRC' -- nvarchar(4)
+          AND ADR_CODE = @mrcCode -- nvarchar(50)
+          AND ADR_RTYPE = N'M' -- nvarchar(4)
+          
+        UPDATE R5ADDRESS SET
+           ADR_TEXT = @mrcDesc -- nvarchar(2000)   
+        WHERE ADR_RENTITY = N'MRC' -- nvarchar(4)
+          AND ADR_CODE = @mrcCode -- nvarchar(50)
+          AND ADR_RTYPE = N'D' -- nvarchar(4)
+          
+        UPDATE R5OBJECTS SET 
+           OBJ_DESC = @mrcDesc
+          ,OBJ_NOTUSED = @mrcNotUsed
+          ,OBJ_MRC = @mrcCode
+        WHERE OBJ_OBTYPE = 'ZZJG'
+          AND OBJ_CODE = @mrcCode
+          
+        UPDATE R5STRUCTURES SET
+           STC_PARENT = @mrcParent -- nvarchar(30)
+        WHERE STC_CHILD = @mrcCode -- nvarchar(30)
+        
+        SELECT @flag = N'S',
+               @message = N'The Department information has already existed.';
+      END
+      
+    SELECT @flag AS flag,
+           @message as message;
+    
+end
+
+GO
+
+/****** Object: Procedure [dbo].[U5PRO_CREATE_PERSON]   Script Date: 2019/2/22 16:11:06 ******/
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+CREATE PROCEDURE [dbo].[U5PRO_CREATE_PERSON]
+@perCode nvarchar(15), @perDesc nvarchar(80), @perMrc nvarchar(50), @perNotUsed nvarchar(8)
+WITH EXEC AS CALLER
+/*****
+Create by Steve Zhang
+2018-Sep-07
+检查员工是否存在，不存在则创建
+******/
+AS
+  declare @ncount int
+  declare @ncount1 int
+  declare @flag nvarchar(2)
+  declare @message nvarchar(3000)
+begin
+
+    SELECT @ncount1 = COUNT(1) FROM R5MRCS WHERE MRC_CODE = @perMrc;
+   
+    IF @ncount1 = 0 
+      INSERT INTO R5MRCS (
+         MRC_CODE
+        ,MRC_DESC
+        ,MRC_CLASS
+        ,MRC_ORG
+        ,MRC_CLASS_ORG
+      
+      ) VALUES (
+         @perMrc -- MRC_CODE - nvarchar(15)
+        ,@perMrc -- MRC_DESC - nvarchar(80)
+        ,'*'
+        ,'*'
+        ,'*'
+      ) 
+   SELECT @ncount = count (1)
+   FROM R5PERSONNEL
+   WHERE PER_CODE = @perCode;
+
+   IF @ncount = 0
+      BEGIN
+        INSERT INTO r5personnel(PER_CODE,
+                                  PER_DESC,
+                                  PER_MRC,
+                                  PER_TRADE,
+                                  PER_NOTUSED,
+                                  PER_ORG,
+                                  PER_CREATED)
+        VALUES(@perCode,
+               ISNULL (@perDesc, '-'),
+               @perMRC,
+               '*',
+               @perNotUsed,
+               '*',
+               getdate ());
+        SELECT @flag = N'S'; 
+      END
+      ELSE
+      BEGIN  
+        UPDATE
+          R5PERSONNEL
+        SET
+          PER_DESC = @perDesc
+         ,PER_MRC  = @perMrc
+         ,PER_NOTUSED = @perNotUsed
+        WHERE
+          PER_CODE = @perCode;
+        SELECT @flag = N'S',
+               @message = N'The staff information has already existed.';
+      END;
+   
+    SELECT @flag AS flag,
+           @message as message;
+    
+end
+GO
+
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CHECK_PERSON]
+@perCode nvarchar(15), @perDesc nvarchar(80)
+WITH EXEC AS CALLER
+/*****
+Create by Jason.Zhao
+2018-Sep-07
+检查员工是否存在，不存在则创建
+******/
+AS
+  declare @ncount int
+begin
+   SELECT @ncount = count (1)
+   FROM R5PERSONNEL
+   WHERE PER_CODE = @perCode;
+
+   IF @ncount = 0
+      BEGIN
+         INSERT INTO r5personnel (PER_CODE,
+                                  PER_DESC,
+                                  PER_MRC,
+                                  PER_TRADE,
+                                  PER_NOTUSED,
+                                  PER_ORG,
+                                  PER_CREATED)
+         VALUES (@perCode,
+                 ISNULL (@perDesc, '-'),
+                 '*',
+                 '*',
+                 '-',
+                 '*',
+                 getdate ());
+      END;
+end
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CLEAN_EVTOBJECTS]
+@evtCode nvarchar(30)
+WITH EXEC AS CALLER
+AS
+begin
+ delete from R5EVENTS
+ where evt_jobtype='MEC'
+ AND EVT_PARENT=@EVTCODE;
+end
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CLEAN_EVTPARTS]
+   @evtCode NVARCHAR (30)
+   WITH
+   EXEC AS CALLER
+AS
+BEGIN
+   DELETE FROM U5PARTREQUIREMENT1
+    WHERE wup_wo = @evtCode;
+
+   DELETE FROM R5MATLPARTS
+    WHERE mlp_matlist IN (SELECT act_matlist
+                            FROM R5ACTIVITIES
+                           WHERE act_event = @evtCode);
+END
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_DAILYEVENT]
+    @corp NVARCHAR(15),
+    @ouCode NVARCHAR(80),
+    @reqCode NVARCHAR(80),
+    @evtJobType NVARCHAR(4),
+    @evtStatus NVARCHAR(4),
+    @evtDesc NVARCHAR(30),
+    @reqStatus NVARCHAR(80),
+    @location NVARCHAR(30),
+    @department NVARCHAR(15),
+    @initialPerson NVARCHAR(15),
+    @initialPersonDesc NVARCHAR(30),
+    @responsible NVARCHAR(15),
+    @responsibleDesc NVARCHAR(30),
+    @onBehalfMark NVARCHAR(30),
+    @borrowType NVARCHAR(30),
+    @usage NVARCHAR(30),
+    @comments NVARCHAR(256)
+WITH EXEC AS CALLER
+AS
+/********************
+**function 创建日常工单
+**author JasonZhao
+**Date 2018-08-23
+** @corpnvarchar(30) ,@ouCodenvarchar(30) ,@reqCodenvarchar(30) ,
+** @reqStatusnvarchar(30) ,@locationnvarchar(30) ,@departmentnvarchar(30)
+**  ,@commentsnvarchar(30)
+*Date Updated: 10 Dec 2018
+*Updated By: Joey Wang
+*Remark: When @location = *, remove the check of obj_obtype
+********************/
+DECLARE @ncount BIGINT,
+        @nchk BIGINT,
+        @flag NVARCHAR(1) = 'S',
+        @locationOrg NVARCHAR(15),
+        @message NVARCHAR(2000),
+        @receiptNo NVARCHAR(30),
+        @OBJCODE NVARCHAR(30),
+        @OBJORG NVARCHAR(15),
+        @evt_udfchar16 NVARCHAR(15),
+        @sevtCode NVARCHAR(30),
+        @storeManager NVARCHAR(30);
+
+BEGIN
+    EXEC dbo.U5PRO_CHECK_PERSON @initialPerson, @initialPersonDesc;
+
+    EXEC dbo.U5PRO_CHECK_PERSON @responsible, @responsibleDesc;
+
+    SELECT @ncount = COUNT(1)
+    FROM R5OBJECTS
+    WHERE OBJ_CODE = @location
+          AND OBJ_OBTYPE = CASE WHEN OBJ_CODE = '*' THEN OBJ_OBTYPE ELSE --Added by Joey Wang on 10 Dec 2018
+                                                                        'L'
+                           END;
+
+    IF @ncount = 0
+    BEGIN
+        SELECT 'E' AS flag,
+               N'位置信息不存在' AS message,
+               '' param1;
+    END;
+
+    SELECT @locationOrg = OBJ_ORG
+    FROM R5OBJECTS
+    WHERE OBJ_CODE = @location
+          AND OBJ_OBTYPE = CASE WHEN OBJ_CODE = '*' THEN OBJ_OBTYPE ELSE --Added by Joey Wang on 10 Dec 2018
+                                                                        'L'
+                           END;
+
+    SET @ncount = 0;
+
+    /** remove check evt_udfchar01 20180907
+
+      SELECT @ncount = count (1)
+      FROM r5events
+      WHERE EVT_JOBTYPE = @evtJobtype AND EVT_UDFCHAR01 = @reqCode;
+   ***/
+    BEGIN TRY
+        IF @ncount = 0
+        BEGIN
+            ---根据Location 查找仓库及仓库负责人
+            SET @nchk = 0;
+
+            SELECT @nchk = COUNT(1)
+            FROM R5STORES
+            WHERE STR_NOTUSED = '-'
+                  AND STR_UDFCHAR01 = @location
+                  AND STR_CLASS = N'IT';
+
+
+            IF @nchk > 0
+            BEGIN
+                SELECT TOP 1
+                       @evt_udfchar16 = STR_CODE,
+                       @storeManager = STR_UDFCHAR02
+                FROM R5STORES
+                WHERE STR_NOTUSED = '-'
+                      AND STR_UDFCHAR01 = @location
+                      AND STR_CLASS = N'IT';
+            END;
+            ELSE
+            BEGIN
+                SELECT TOP 1
+                       @evt_udfchar16 = STR_CODE,
+                       @storeManager = STR_UDFCHAR02
+                FROM R5STORES
+                WHERE STR_NOTUSED = '-'
+                      AND STR_UDFCHAR01 = @location;
+            END;
+
+            --AND str_org = @corp;
+
+            EXEC P_GETNEXTID 'S5EVENT', @receiptNo OUTPUT;
+
+            INSERT INTO R5EVENTS (EVT_CODE,
+                                  EVT_DESC,
+                                  EVT_TYPE,
+                                  EVT_RTYPE,
+                                  EVT_OBTYPE,
+                                  EVT_OBRTYPE,
+                                  EVT_STATUS,
+                                  EVT_RSTATUS,
+                                  EVT_ENTEREDBY,
+                                  EVT_JOBTYPE,
+                                  EVT_UDFCHAR16,
+                                  EVT_ORG,
+                                  EVT_UDFCHAR01,
+                                  EVT_UDFCHAR03,
+                                  EVT_UDFCHAR08,
+                                  EVT_OBJECT,
+                                  EVT_OBJECT_ORG,
+                                  EVT_MRC,
+                                  EVT_ORIGIN,
+                                  EVT_UDFCHAR05,
+                                  EVT_UDFCHKBOX01,
+                                  EVT_UDFCHAR12,
+                                  EVT_UDFCHAR07,
+                                  EVT_WORKADDRESS,
+                                  EVT_DATE,
+                                  EVT_DURATION)
+            VALUES (@receiptNo,
+                    @evtDesc,
+                    'JOB',
+                    'JOB',
+                    'L',
+                    'L',
+                    @evtStatus,
+                    'R',
+                    @storeManager,
+                    @evtJobType,
+                    @evt_udfchar16,
+                    @corp,
+                    @reqCode,
+                    @reqStatus,
+                    @ouCode,
+                    @location,
+                    @locationOrg,
+                    ISNULL(@department,
+                           '*'),
+                    @initialPerson,
+                    @responsible,
+                    @onBehalfMark,
+                    @borrowType,
+                    @usage,
+                    @comments,
+                    GETDATE(),
+                    1);
+
+            IF @evtJobType = '60GH'
+            BEGIN
+                --ADD BY Jason 2018-Sup-13  归还标准取组织级别的安装参数
+                DECLARE @TASKCODE NVARCHAR(MAX);
+                SELECT @TASKCODE = OPA_DESC
+                FROM R5ORGANIZATIONOPTIONS
+                WHERE OPA_CODE = '@GHBZ'
+                      AND OPA_ORG = @corp;
+
+                INSERT INTO R5ACTIVITIES --创建标准验收项目1- 检查表
+                (ACT_TASK,
+                 ACT_TRADE,
+                 ACT_ACT,
+                 ACT_EVENT,
+                 ACT_MRC,
+                 ACT_START,
+                 ACT_QTY,
+                 ACT_EST,
+                 ACT_REM,
+                 ACT_TIME,
+                 ACT_PERSONS,
+                 ACT_DURATION,
+                 ACT_NOTE,
+                 ACT_TASKREV)
+                VALUES (@TASKCODE, '*', 10, @receiptNo, '*', GETDATE(), 1, 1, 1, 1, 1, 1, N'归还标准', 0);
+            END;
+        END;
+        ELSE
+        BEGIN
+            SELECT @receiptNo = EVT_CODE
+            FROM R5EVENTS
+            WHERE EVT_UDFCHAR01 = @reqCode
+                  AND EVT_JOBTYPE = @evtJobType;
+
+            UPDATE R5EVENTS
+            SET EVT_UDFCHAR03 = @reqStatus,
+                EVT_WORKADDRESS = @comments
+            WHERE EVT_UDFCHAR01 = @reqCode
+                  AND EVT_JOBTYPE = @evtJobType;
+        END;
+    END TRY
+    BEGIN CATCH
+        ---便于Mybatis获取结果。
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+    SELECT @flag AS flag,
+           @message AS message,
+           @receiptNo param1;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_EVTOBJECTS]
+   @evtCode NVARCHAR (30), @objCode NVARCHAR (30), @duration NUMERIC (8, 0)
+   WITH
+   EXEC AS CALLER
+   /***
+   创建子借用、归还 工单。
+   ****/
+AS
+DECLARE @sevtCode   NVARCHAR (30);
+DECLARE @objOrg   NVARCHAR (15);
+
+BEGIN
+   EXEC P_GETNEXTID 'S5EVENT', @sevtCode OUTPUT;
+   SELECT @objorg = obj_org
+   FROM r5objects
+   WHERE obj_code = @objCode;
+
+   INSERT INTO R5EVENTS                                      --添加子工单语句 -跟设备，部门
+                        (EVT_CODE,
+                         EVT_DESC,
+                         EVT_TYPE,
+                         EVT_RTYPE,
+                         EVT_STATUS,
+                         EVT_RSTATUS,
+                         EVT_ORG,
+                         EVT_JOBTYPE,
+                         EVT_OBTYPE,
+                         EVT_OBRTYPE,
+                         EVT_OBJECT,
+                         EVT_OBJECT_ORG,
+                         EVT_DATE,
+                         EVT_MRC,
+                         EVT_DURATION,
+                         EVT_ENTEREDBY,
+                         EVT_PARENT,
+                         EVT_ROUTEPARENT,
+                         EVT_UDFNUM01)
+      SELECT @sevtCode,
+             evt_desc,
+             'JOB',
+             'JOB',
+             evt_status,
+             'R',
+             evt_org,
+             'MEC',                                                       --固定
+             'A',                                                         --固定
+             'A',
+             @objcode,                                                  --设备编码
+             @objorg,                                                   --设备组织
+             getdate (),
+             '*',                                                      ---设备部门
+             1,
+             'R5',
+             @evtCode,
+             @evtcode,
+             @duration
+        FROM r5events
+       WHERE evt_code = @evtcode;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_EVTPARTPLAN]
+    @evtCode NVARCHAR(30),
+    @nMaxmatlline NUMERIC(8, 0),
+    @partCode NVARCHAR(30),
+    @nomalModel NVARCHAR(256),
+    @specification NVARCHAR(256),
+    @qty NUMERIC(8, 0),
+    @duration NUMERIC(8, 0)
+WITH EXEC AS CALLER
+AS
+/**Version 1.1
+function:向工单插入备件需求计划
+author:JasonZhao
+createdate:2018-Aug-22
+#{evtCode} ,#{reqLine} ,#{partCode} ,#{nomalModel} ,#{specification} ,#{qty}
+*Updated by Joey Wang on 23 Aug 2018
+*Remark: 
+   1) 增加向u5partrequirement1表写入常用型号中英文描述动作；
+   2）增加写入updatecout=0动作
+***/
+DECLARE @evtOrg NVARCHAR(15),     --组织
+        @evtObjects NVARCHAR(30), --领用地点
+        @vactCode NUMERIC(8, 0),  --工单作业号
+        @vMatList NVARCHAR(30),   --物料表编号
+        @Nextid BIGINT,
+        @store NVARCHAR(30),      ---仓库-根据领用地点获取
+        @ncount INT;
+
+BEGIN
+    SELECT @ncount = COUNT(1)
+    FROM U5FREQUENTMODELS
+    WHERE FMD_NAMEID = @nomalModel;
+    IF @ncount = 1
+    BEGIN
+        --   SELECT @partCode =  MDC_PART
+        --   FROM U5MODELCONFIGS
+        --   WHERE mdc_process = N'入职领用' AND
+        --   MDC_FMD_NAMEID=@nomalModel;
+
+        SELECT @partCode = FMD_PART_CODE
+        FROM U5FREQUENTMODELS
+        WHERE FMD_NAMEID = @nomalModel;
+    END;
+    SELECT @evtOrg = EVT_ORG,
+           @evtObjects = EVT_OBJECT
+    FROM R5EVENTS
+    WHERE EVT_CODE = @evtCode;
+
+    -----------------------------
+    SELECT @ncount = COUNT(1)
+    FROM R5ACTIVITIES
+    WHERE ACT_EVENT = @evtCode
+          AND ACT_PLANNINGLEVEL = 'TP';
+
+    SET @vactCode = 10;
+
+    IF @ncount = 0
+    BEGIN
+        INSERT INTO R5ACTIVITIES
+        (
+            ACT_TRADE,
+            ACT_ACT,
+            ACT_EVENT,
+            ACT_MRC,
+            ACT_START,
+            ACT_QTY,
+            ACT_EST,
+            ACT_REM,
+            ACT_TIME,
+            ACT_PERSONS,
+            ACT_DURATION,
+            ACT_HIRE,
+            ACT_FIXH,
+            ACT_MINHOURS,
+            ACT_SPECIAL,
+            ACT_PLANNINGLEVEL,
+            ACT_MATLREV
+        )
+        VALUES
+        ('*', @vactCode, @evtCode, '*', GETDATE(), 1, 1, 1, 1, 1, 1, '-', '-', '-', '-', 'TP', '0');
+    END;
+
+    -----------------------------
+    ---设置物料表编号
+    SELECT @vMatList = ISNULL(ACT_MATLIST, '-')
+    FROM R5ACTIVITIES
+    WHERE ACT_EVENT = @evtCode
+          AND ACT_ACT = @vactCode;
+
+    -----------------------------
+    IF @vMatList = '-'
+    BEGIN
+        ------插入物料表-------
+        EXEC P_GETNEXTID 'S5MATLISTS', @Nextid OUTPUT;
+        SELECT @vMatList = 'V-' + CAST(@Nextid AS NVARCHAR(30));
+
+        INSERT INTO R5MATLISTS
+        (
+            MTL_CODE,
+            MTL_DESC,
+            MTL_EVENT,
+            MTL_ACT,
+            MTL_REVRSTATUS,
+            MTL_REVSTATUS,
+            MTL_ORG
+        )
+        VALUES
+        (@vMatList, '-', @evtCode, @vactCode, 'A', 'A', @evtOrg);
+
+        /********更新工单活动********/
+        UPDATE R5ACTIVITIES
+        SET ACT_MATLIST = @vMatList,
+            ACT_MATLREV = 0
+        WHERE ACT_EVENT = @evtCode
+              AND ACT_ACT = @vactCode;
+    END;
+
+    -----------------------------
+    /*****获取备件行号是否存在****/
+    SELECT @ncount = COUNT(1)
+    FROM R5MATLPARTS
+    WHERE MLP_MATLIST = @vMatList
+          AND MLP_LINE = @nMaxmatlline;
+
+    -----------------------------
+    IF @ncount = 0
+    BEGIN
+        /********插入物料表的备件行******/
+        INSERT INTO R5MATLPARTS
+        (
+            MLP_MATLIST,
+            MLP_LINE,
+            MLP_PART,
+            MLP_QTY,
+            MLP_UOM,
+            MLP_MATLREV,
+            MLP_PART_ORG,
+            MLP_RESERV,
+            MLP_CRIT,
+            MLP_DIRECT
+        )
+        VALUES
+        (@vMatList, @nMaxmatlline, @partCode, @qty, 'EA', 0, '*', '-', '-', '-');
+    END;
+    ELSE
+    BEGIN
+        /************更新物料表的备件行*************/
+        UPDATE R5MATLPARTS
+        SET MLP_PART = @partCode,
+            MLP_QTY = @qty
+        WHERE MLP_MATLIST = @vMatList
+              AND MLP_LINE = @nMaxmatlline
+              AND (   MLP_PART <> @partCode
+                      OR MLP_QTY <> @qty);
+    END;
+
+    -----------------------------
+    /*****获取客户化表是否存在****/
+    SELECT @ncount = COUNT(1)
+    FROM U5PARTREQUIREMENT1
+    WHERE WUP_LINE = @nMaxmatlline
+          AND WUP_WO = @evtCode;
+
+    IF @ncount = 0
+    BEGIN
+        INSERT INTO U5PARTREQUIREMENT1
+        (
+            WUP_LINE,
+            WUP_WO,
+            WUP_NORMALMOD,
+            WUP_PART,
+            WUP_SPECIFICATION,
+            WUP_DURATION,
+            wup_moddesc,   --Added by Joey Wang on 23 Dec 2018
+            wup_moddescen, --Added by Joey Wang on 23 Dec 2018
+            CREATED,
+            CREATEDBY
+        )
+        SELECT @nMaxmatlline,
+               @evtCode,
+               @nomalModel,
+               @partCode,
+               @specification,
+               @duration,
+               DESCRIPTION, --Added by Joey Wang on 23 Dec 2018
+               FMD_NAME_EN, --Added by Joey Wang on 23 Dec 2018
+               GETDATE(),
+               'R5'
+        FROM dbo.U5FREQUENTMODELS
+        WHERE FMD_NAMEID = @nomalModel;
+    END;
+    ELSE
+    BEGIN
+        UPDATE U5PARTREQUIREMENT1
+        SET WUP_NORMALMOD = @nomalModel,
+            WUP_PART = @partCode,
+            WUP_SPECIFICATION = @specification,
+            WUP_DURATION = @duration,
+            UPDATED = GETDATE(),
+            wup_moddesc = (   SELECT DESCRIPTION --Added by Joey Wang on 23 Dec 2018
+                              FROM dbo.U5FREQUENTMODELS
+                              WHERE FMD_NAMEID = @nomalModel),
+            wup_moddescen = (   SELECT FMD_NAME_EN --Added by Joey Wang on 23 Dec 2018
+                                FROM dbo.U5FREQUENTMODELS
+                                WHERE FMD_NAMEID = @nomalModel)
+        WHERE WUP_LINE = @nMaxmatlline
+              AND WUP_WO = @evtCode;
+    END;
+    -----------------------------
+    --更新借用时长至工单
+    UPDATE R5EVENTS
+    SET EVT_UDFNUM01 = @duration
+    WHERE EVT_CODE = @evtCode;
+-----------------------------
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+-- =============================================
+-- Version 2.0
+-- Author:Steve Zhang
+-- Create date:  2018-12-21 17:35:39
+-- Description: 手工生成验收单行
+-- Updated by Steve Zhang on 21 Dec 2018
+-- Remark: rewrite to create the asset with the actual part code instead of update afterwards
+-- =============================================
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_MANUAL_RECVLINE]
+    @receiptNo NVARCHAR(30),
+    @flag NVARCHAR(1) OUTPUT,
+    @message NVARCHAR(2000) OUTPUT
+WITH EXEC AS CALLER
+AS
+DECLARE @nchk INT;
+DECLARE @ncount INT;
+DECLARE @objclass NVARCHAR(8);
+DECLARE @objcate NVARCHAR(30);
+DECLARE @TDNCODE NVARCHAR(80);
+DECLARE @sEvtCode NVARCHAR(30);
+DECLARE @faCode NVARCHAR(30);
+DECLARE @faId NVARCHAR(30);
+DECLARE @sql NVARCHAR(100); 
+DECLARE @objdescZH NVARCHAR(80); 
+DECLARE @objDescEn NVARCHAR(80); 
+DECLARE @taskCode NVARCHAR(30); 
+
+DECLARE @sEvtReported  NVARCHAR(30);
+DECLARE @sEvtTarget  NVARCHAR(30);
+DECLARE @sEVTSchedend  NVARCHAR(30);
+DECLARE @sEvtCalStatus  NVARCHAR(30);
+DECLARE @sEvtFixed  NVARCHAR(30);
+
+DECLARE @ouCode NVARCHAR(80);
+DECLARE @corp NVARCHAR(15);
+DECLARE @partCode NVARCHAR(80);
+DECLARE @number INT;
+DECLARE @workNo NVARCHAR(30);
+
+BEGIN
+    SET @flag = 'S';
+    BEGIN TRY
+          --获取验收单父工单信息
+                
+          SELECT  @sEvtReported = EVT_REPORTED,
+                 @sEvtTarget = EVT_TARGET,
+                 @sEVTSchedend = EVT_SCHEDEND,
+                 @sEvtCalStatus = EVT_CALSTATUS,
+                 @sEvtFixed = EVT_FIXED,
+                 @ouCode = EVT_UDFCHAR08,
+                 @corp = EVT_ORG,
+                 @partCode = EVT_UDFCHAR18,
+                 @workNo = EVT_ORIGIN,
+                 @number = EVT_UDFNUM01
+            FROM R5EVENTS
+            WHERE EVT_CODE = @receiptNo;
+
+          SELECT @objcate = PAR_CATEGORY,
+               @objclass = PAR_CLASS,
+               @objDescEn = dbo.R5O7_O7GET_DESC('EN',
+                                                'PART',
+                                                PAR_CODE,
+                                                '',
+                                                ''), --Added by Joey Wang on 12 Dec 2018
+               @objdescZH = PAR_DESC                 --Added by Joey Wang on 12 Dec 2018
+           FROM R5PARTS
+          WHERE PAR_CODE = @partCode;
+
+        SELECT TOP 1
+               @faCode = LMD_FINANCECATETORY,
+               @faId = LMD_FINANCECATETORYID
+        FROM U5PARTCATEGORY
+        WHERE LMD_PARTCODE = @partCode
+              AND LMD_FINANCESYSTEM = @corp;
+        --and LMD_USAGECODE = 'MANUAL_OFFICE';
+
+    SELECT
+    @ncount = COUNT(*)
+    FROM
+    U5OBJECT_TDN_TOUSE
+    WHERE
+    EVT_CODE = @receiptNo
+    
+    IF @ncount < 1 
+    BEGIN
+       SELECT 'E' AS flag,
+               N'该验收单没有待创建的资产' AS message;
+    END
+    
+    set @nchk = 0;
+    
+    DECLARE
+        assetCodeCursor CURSOR LOCAL FOR
+          SELECT
+            OBJ_CODE
+          FROM
+            U5OBJECT_TDN_TOUSE
+          WHERE
+            EVT_CODE = @receiptNo
+    
+        OPEN assetCodeCursor
+        FETCH NEXT FROM assetCodeCursor
+            INTO
+              @TDNCODE
+
+        WHILE @@FETCH_STATUS = 0
+          BEGIN
+        --生成资产
+
+        --BEGIN TRAN;
+
+        INSERT INTO R5OBJECTS (OBJ_OBTYPE,
+                               OBJ_OBRTYPE,
+                               OBJ_GROUP,
+                               OBJ_USER,
+                               OBJ_CODE,
+                               OBJ_DESC,
+                               OBJ_CATEGORY,
+                               OBJ_CLASS,
+                               OBJ_CLASS_ORG,
+                               OBJ_MRC,
+                               OBJ_ORG,
+                               OBJ_STATUS,
+                               OBJ_PART,
+                               OBJ_PART_ORG,
+                               OBJ_COMMISS,
+                               OBJ_UDFCHAR31,
+                               OBJ_UDFCHAR33,
+                               OBJ_UDFCHAR12,
+                               OBJ_UDFCHAR22,
+                               OBJ_UDFCHAR45)
+        VALUES ('A',
+                'A',
+                'R5',
+                'R5',
+                @TDNCODE,
+                            --  N'临时设备描述',
+                @objdescZH, --Added by Joey Wang on 12 Dec 2018
+                @objcate,
+                @objclass,
+                '*',
+                '*',
+                @corp,
+                'A01',
+                @partCode,
+                '*',
+                GETDATE(),
+                @faCode,
+                @faId,
+                @workNo,
+                dbo.R5O7_O7GET_DESC('ZH',
+                                    'PERS',
+                                    @workNo,
+                                    '',
+                                    ''),
+                @receiptNo);
+        
+        UPDATE R5DESCRIPTIONS
+        SET DES_TEXT = @objDescEn, --Added by Joey Wang on 12 Dec 2018
+            DES_TRANS = '+'
+        WHERE DES_CODE = @TDNCODE
+              AND DES_ENTITY = 'OBJ'
+              AND DES_LANG = 'EN';
+
+
+
+        set @nchk = @nchk + 1;
+        --COMMIT TRAN;
+        FETCH NEXT FROM assetCodeCursor
+              INTO
+                @TDNCODE
+       
+      END;
+      CLOSE assetCodeCursor
+      DEALLOCATE assetCodeCursor  
+      
+      --全部创建完成后删除待创建表中的所有大阿里编号
+ --     DELETE FROM U5OBJECT_TDN_TOUSE WHERE EVT_CODE = @receiptNo;
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+    ---以便Mybatis获取返回结果。
+    SELECT @flag AS flag,
+           @message AS message
+
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_PICKUPEVENT]
+    @corp NVARCHAR(15),
+    @ouCode NVARCHAR(80),
+    @reqCode NVARCHAR(80),
+    @evtJobType NVARCHAR(4),
+    @evtStatus NVARCHAR(4),
+    @evtDesc NVARCHAR(30),
+    @reqStatus NVARCHAR(80),
+    @hrlocation NVARCHAR(30),
+    @hrlocationDesc NVARCHAR(80),
+    @department NVARCHAR(30),
+    @personCode NVARCHAR(15),
+    @personName NVARCHAR(30),
+    @dueDate NVARCHAR(30),
+    @comments NVARCHAR(256),
+    @central NVARCHAR(15)
+WITH EXEC AS CALLER
+AS
+/********************
+**function 创建入职领用工单
+**author JasonZhao
+**Date 2018-08-23
+** @corpnvarchar(30) ,@ouCodenvarchar(30) ,@reqCodenvarchar(30) ,
+** @reqStatusnvarchar(30) ,@locationnvarchar(30) ,@departmentnvarchar(30)
+**,@personCodenvarchar(30) ,@personNamenvarchar(30) ,@dueDatenvarchar(30) ,@commentsnvarchar(30)
+**Updated by Joey Wang on 26 Oct 2018
+**Change the default value of location in case the HR location is not mapped to any EAM location
+********************/
+DECLARE @ncount BIGINT,
+        @flag NVARCHAR(1) = 'S',
+        @location NVARCHAR(30),
+        @locationOrg NVARCHAR(15),
+        @message NVARCHAR(2000),
+        @receiptNo NVARCHAR(30),
+        @OBJCODE NVARCHAR(30),
+        @OBJORG NVARCHAR(15),
+        @evt_udfchar16 NVARCHAR(15),
+        @sevtCode NVARCHAR(30),
+        @sendEmail  NVARCHAR(1);
+       
+
+BEGIN
+    EXEC dbo.U5PRO_CHECK_PERSON @personCode, @personName;
+
+    SELECT @ncount = COUNT(1)
+    FROM U5LOCATIONMAPPING
+    WHERE LOM_3RDCODE = @hrlocation
+          AND LOM_3RDSYSTEM = N'HR'
+          AND ISNULL(LOM_NOTUSED, '-') = '-';
+
+    IF @ncount = 0
+    BEGIN
+        SELECT @flag = N'S',
+               @message = N'办公地点信息没有在EAM中维护！';
+               
+
+        INSERT INTO U5LOCATIONMAPPING
+        (
+            LOM_3RDCODE,
+            LOM_EAMCODE,
+            LOM_3RDDESC,
+            LOM_EAMDESC,
+            LOM_3RDSYSTEM,
+            LOM_NOTUSED,
+            CREATEDBY,
+            CREATED
+        )
+        VALUES
+        (   @hrlocation, -- LOM_3RDCODE - nvarchar(200)
+            (CASE @corp
+                 WHEN 'ALIO' THEN
+                     -- '865710101'
+                     'ALIO'
+                 WHEN 'ALID' THEN
+                     --  '865710102'
+                     'ALID'
+                 ELSE
+                     -- '865710101'
+                     'ALIO'
+             END
+            ),           -- LOM_EAMCODE - nvarchar(30)
+            @hrlocationDesc, -- LOM_3RDDESC - nvarchar(200)
+            NULL,        -- LOM_EAMDESC - nvarchar(80)
+            N'HR',       -- LOM_3RDSYSTEM - nvarchar(30)
+            '-',         -- LOM_NOTUSED - nvarchar(1)
+            'R5',        -- CREATEDBY - nvarchar(30)
+            GETDATE()    -- CREATED - datetime
+            );
+    END;
+    SET @department = N'*';
+    
+    
+    
+    --根据hr地点查询该归口下的所有仓库。
+    
+    SELECT
+      TOP 1
+      @evt_udfchar16 = STR_CODE
+    FROM
+      R5STORES
+    WHERE
+      STR_UDFCHAR01 IN (SELECT
+                          LOM_EAMCODE
+                        FROM
+                          U5LOCATIONMAPPING
+                        WHERE
+                          LOM_3RDCODE = @hrlocation 
+                          AND LOM_3RDSYSTEM = N'HR'
+                          AND ISNULL(LOM_NOTUSED, '-') = '-') AND
+      str_class = @central and
+      STR_NOTUSED = '-'
+      
+      SELECT @location = STR_UDFCHAR01
+      FROM R5STORES
+      WHERE STR_CODE = @evt_udfchar16
+    
+--    SELECT @location = LOM_EAMCODE
+--    FROM U5LOCATIONMAPPING
+--    WHERE LOM_3RDCODE = @hrlocation
+--          AND LOM_3RDSYSTEM = N'HR'
+--          AND ISNULL(LOM_NOTUSED, '-') = '-';
+
+    IF @location IN ('ALIO','ALID')
+      set @sendEmail = '+'
+
+    SELECT @ncount = COUNT(1)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+    FROM R5OBJECTS
+    WHERE OBJ_CODE = @location
+          AND OBJ_OBTYPE = 'L';
+
+    IF @ncount = 0
+    BEGIN
+        SELECT @flag = N'S',
+            @message = N'位置信息不存在';
+    END;
+
+    SELECT @locationOrg = OBJ_ORG
+    FROM R5OBJECTS
+    WHERE OBJ_CODE = @location
+          AND OBJ_OBTYPE = 'L';
+
+    SELECT @ncount = COUNT(1)
+    FROM R5EVENTS
+    WHERE EVT_JOBTYPE = @evtJobType
+          AND EVT_UDFCHAR01 = @reqCode
+          AND EVT_CLASS = @central;
+          
+   ---根据Location 查找仓库。
+
+--    SELECT TOP 1
+--           @evt_udfchar16 = STR_CODE
+--    FROM R5STORES
+--    WHERE STR_NOTUSED = '-'
+--          AND STR_UDFCHAR01 = @location
+--          AND STR_CLASS = @central;
+
+    BEGIN TRY
+        IF @ncount = 0
+        BEGIN
+            EXEC P_GETNEXTID 'S5EVENT', @receiptNo OUTPUT;
+           
+
+            IF @evtJobType = N'20RZ'
+                SET @evtDesc = @evtDesc + CONVERT(NVARCHAR, GETDATE(), 106);
+
+           INSERT INTO
+              R5EVENTS(
+                EVT_CODE
+               ,EVT_DESC
+               ,EVT_TYPE
+               ,EVT_RTYPE
+               ,EVT_OBTYPE
+               ,EVT_OBRTYPE
+               ,EVT_STATUS
+               ,EVT_RSTATUS
+               ,EVT_ENTEREDBY
+               ,EVT_JOBTYPE
+               ,EVT_UDFCHAR16
+               ,EVT_ORG
+               ,EVT_UDFCHAR01
+               ,EVT_UDFCHAR03
+               ,EVT_UDFCHAR08
+               ,EVT_OBJECT
+               ,EVT_OBJECT_ORG
+               ,EVT_MRC
+               ,EVT_ORIGIN
+               ,EVT_UDFDATE02
+               ,EVT_WORKADDRESS
+               ,EVT_DATE
+               ,EVT_DURATION
+               ,EVT_CLASS
+               ,EVT_CLASS_ORG
+               ,EVT_UDFCHAR07)
+              VALUES
+                (
+                  @receiptNo
+                 ,@evtDesc
+                 ,'JOB'
+                 ,'JOB'
+                 ,'L'
+                 ,'L'
+                 ,'TS00'
+                 ,'R'
+                 ,'R5'
+                 ,@evtJobType
+                 ,@evt_udfchar16
+                 ,@corp
+                 ,@reqCode
+                 ,@reqStatus
+                 ,@ouCode
+                 ,@location
+                 ,@locationOrg
+                 ,@department
+                 ,@personCode
+                 ,CAST(@dueDate AS DATE)
+                 ,@comments
+                 ,GETDATE()
+                 ,1
+                 ,ISNULL(
+                    @central
+                   ,'*')
+                 ,@corp
+                 ,@hrlocationDesc);
+                 
+            UPDATE R5EVENTS 
+               SET EVT_STATUS = CASE @sendEmail
+                                  WHEN N'+' THEN N'TS30' ----待修正
+                               ELSE     
+                                  (CASE @reqStatus
+                                    WHEN N'完成报到' THEN N'TS40' --待办
+                                    WHEN N'待邀约报到' THEN N'TS10' --审批中
+                                    WHEN N'已邀约待报到' THEN N'TS10' --审批中
+                                    --,达到报到日期则修改为待办
+                                    WHEN N'取消报到' THEN N'TS50' --取消
+                                    WHEN N'未满足报到条件' THEN N'TS10' --审批中
+                                    WHEN N'未报到' THEN N'TS50' --取消
+                                    WHEN N'已重新发起' THEN N'TS50' --取消
+                                    WHEN N'未满足报道条件' THEN N'TS10' --审批中
+                                    --------离职单状态更新-----------
+                                    WHEN N'AUDITED' THEN N'TS40'
+                                    WHEN N'CANCELED' THEN N'TS50'
+                                    --------离职单状态更新-----------
+                                    ELSE N'TS10' --审批中
+                                  END)
+                               END
+             WHERE EVT_CODE = @receiptNo AND EVT_JOBTYPE = @evtJobType
+
+            IF @evtJobType = '30LZ'
+            BEGIN
+                DECLARE objLists CURSOR LOCAL FOR
+                SELECT OBJ_CODE,
+                       OBJ_ORG
+                FROM R5OBJECTS
+                WHERE OBJ_UDFCHAR13 = @personCode
+                      AND
+                      (
+                          SELECT MRC_CLASS FROM R5MRCS WHERE MRC_CODE = OBJ_UDFCHAR14
+                      ) = @central
+                      AND OBJ_OBTYPE = 'A';
+
+                BEGIN
+
+                    --ADD BY Steve 2018-10-13  归还标准取组织级别的安装参数
+                    DECLARE @TASKCODE NVARCHAR(MAX);
+                    SELECT @TASKCODE = OPA_DESC
+                    FROM R5ORGANIZATIONOPTIONS
+                    WHERE OPA_CODE = '@GHBZ'
+                          AND OPA_ORG = @corp;
+
+                    INSERT INTO R5ACTIVITIES --创建标准验收项目1- 检查表
+                    (
+                        ACT_TASK,
+                        ACT_TRADE,
+                        ACT_ACT,
+                        ACT_EVENT,
+                        ACT_MRC,
+                        ACT_START,
+                        ACT_QTY,
+                        ACT_EST,
+                        ACT_REM,
+                        ACT_TIME,
+                        ACT_PERSONS,
+                        ACT_DURATION,
+                        ACT_NOTE,
+                        ACT_TASKREV
+                    )
+                    VALUES
+                    (@TASKCODE, '*', 10, @receiptNo, '*', GETDATE(), 1, 1, 1, 1, 1, 1, N'归还标准', 0);
+                    OPEN objLists;
+                    FETCH NEXT FROM objLists
+                    INTO @OBJCODE,
+                         @OBJORG;
+
+                    WHILE @@FETCH_STATUS = 0
+                    BEGIN
+                        EXEC P_GETNEXTID 'S5EVENT', @sevtCode OUTPUT;
+
+                        INSERT INTO R5EVENTS --添加子工单语句 -跟设备，部门
+                        (
+                            EVT_CODE,
+                            EVT_DESC,
+                            EVT_TYPE,
+                            EVT_RTYPE,
+                            EVT_STATUS,
+                            EVT_RSTATUS,
+                            EVT_ORG,
+                            EVT_JOBTYPE,
+                            EVT_OBTYPE,
+                            EVT_OBRTYPE,
+                            EVT_OBJECT,
+                            EVT_OBJECT_ORG,
+                            EVT_DATE,
+                            EVT_MRC,
+                            EVT_DURATION,
+                            EVT_ENTEREDBY,
+                            EVT_PARENT,
+                            EVT_ROUTEPARENT
+                        )
+                        VALUES
+                        (   @sevtCode, @evtDesc, 'JOB', 'JOB', @evtStatus, 'R', @corp, 'MEC', --固定
+                            'A',                                                              --固定
+                            'A', @OBJCODE,                                                    --设备编码
+                            @OBJORG,                                                          --设备组织
+                            GETDATE(), '*',                                                   ---设备部门
+                            1, 'R5', @receiptNo, @receiptNo);
+
+
+
+
+                        FETCH NEXT FROM objLists
+                        INTO @OBJCODE,
+                             @OBJORG;
+                    END;
+
+                    CLOSE objLists;
+                    DEALLOCATE objLists;
+                END;
+            END;
+        END;
+        ELSE
+        BEGIN
+        
+            print 'Update Events'
+            SELECT top 1 @receiptNo = EVT_CODE
+            FROM R5EVENTS
+            WHERE EVT_UDFCHAR01 = @reqCode
+                  AND EVT_JOBTYPE = @evtJobType
+                  AND EVT_CLASS = @central
+                  AND EVT_STATUS <> N'C';
+
+            UPDATE R5EVENTS
+            SET EVT_UDFCHAR03 = ISNULL(@reqStatus, EVT_UDFCHAR03),
+                EVT_WORKADDRESS = ISNULL(@comments, EVT_WORKADDRESS),
+                EVT_ORIGIN = ISNULL(@personCode, EVT_ORIGIN),
+                EVT_UDFDATE02 = ISNULL(CAST(@dueDate AS DATE), EVT_UDFDATE02),
+                EVT_MRC = ISNULL(@department, EVT_MRC),
+                --EVT_DESC = isnull(@evtDesc, EVT_DESC),
+                EVT_UDFCHAR07 = ISNULL(@hrlocationDesc,EVT_UDFCHAR07),
+                EVT_OBJECT = ISNULL(@location, EVT_OBJECT),
+                EVT_OBJECT_ORG = ISNULL(@locationOrg, EVT_OBJECT_ORG),
+                EVT_STATUS =CASE EVT_STATUS
+                                 WHEN N'TS30' THEN
+                                    N'TS30'
+                                 ELSE
+                                  (CASE @reqStatus
+                                       WHEN N'完成报到' THEN
+                                           N'TS40' --待办
+                                       WHEN N'待邀约报到' THEN
+                                           N'TS10' --审批中
+                                       WHEN N'已邀约待报到' THEN
+                                           N'TS10' --审批中
+                                       --,达到报到日期则修改为待办
+                                       WHEN N'取消报到' THEN
+                                           N'TS50' --取消
+                                       WHEN N'未满足报到条件' THEN
+                                           N'TS10' --审批中
+                                       WHEN N'未报到' THEN
+                                           N'TS50' --取消
+                                       WHEN N'已重新发起' THEN
+                                           N'TS50' --取消
+                                       WHEN N'未满足报道条件' THEN
+                                           N'TS10' --审批中
+                                       --------离职单状态更新-----------
+                                       WHEN N'AUDITED' THEN
+                                           N'TS40'
+                                       WHEN N'CANCELED' THEN
+                                           N'TS50'
+                                       --------离职单状态更新-----------
+                                       ELSE
+                                           N'TS10' --审批中
+                                  END)
+                            END
+            WHERE EVT_code = @receiptNo;
+            
+        END;
+        
+        
+    END TRY
+    BEGIN CATCH
+        ---便于Mybatis获取结果。
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+
+    SELECT @flag AS flag,
+           @message AS message,
+           @receiptNo param1;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_RECEIPT]
+   @corp                       NVARCHAR (15),
+   @supplierCode               NVARCHAR (30),
+   @supplierName               NVARCHAR (80),
+   @ouCode                     NVARCHAR (80),
+   @poNumber                   NVARCHAR (80),
+   @acceptNumber               NVARCHAR (80),
+   @acceptanceLineId           NVARCHAR (80),
+   @acceptanceLineOfHEMA       NVARCHAR (80),
+   @unitPriceTaxIncluded       NVARCHAR (30),
+   @taxRate                    NVARCHAR (10),
+   @amountTaxIncluded          NVARCHAR (30),
+   @orderType                  NVARCHAR (30),
+   @workNo                     NVARCHAR (30),
+   @flag                       NVARCHAR (1) OUTPUT,
+   @message                    NVARCHAR (2000) OUTPUT,
+   @receiptNo                  NVARCHAR (30) OUTPUT
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+DECLARE @nchk   INT;
+
+BEGIN
+   SET @flag = 'S'
+
+   BEGIN TRY
+      SELECT @ncount = count (1)
+      FROM R5COMPANIES
+      WHERE COM_CODE = upper(@supplierCode);
+
+      IF @ncount = 0
+         BEGIN
+            INSERT INTO R5COMPANIES (com_code,
+                                     com_desc,
+                                     com_org,
+                                     com_curr,
+                                     com_lang)
+            VALUES (upper(@supplierCode),
+                    @supplierName,
+                    '*',
+                    'CNY',
+                    'ZH');
+         END;
+
+      SELECT @ncount = count (1)
+        FROM r5events
+       WHERE     evt_udfchar02 = @acceptanceLineId
+             AND evt_udfchar10 = @poNumber
+             AND evt_jobtype = '10YS'
+             ---增加校验，如果是河马的需要校验行行ID
+             AND (   @CORP <> 'HEMA'
+                  OR (EVT_UDFCHAR22 = ISNULL (@acceptanceLineOfHEMA, '')))
+             AND evt_status <> 'YS50';
+
+      IF @NCOUNT > 0
+         BEGIN
+            SELECT TOP 1
+                   @receiptNo = cast (evt_code AS NVARCHAR (30))
+              FROM r5events
+             WHERE     evt_udfchar02 = @acceptanceLineId
+                   AND evt_udfchar10 = @poNumber
+                   ---增加校验，如果是河马的需要校验行行ID
+                   AND (   @CORP <> 'HEMA'
+                        OR (EVT_UDFCHAR22 =
+                               ISNULL (@acceptanceLineOfHEMA, '')))
+                   AND evt_jobtype = '10YS'
+                   AND evt_status <> 'YS50';
+
+            SELECT 'E' AS flag,
+                   N'验收单已经存在' + @receiptNo AS message,
+                   @receiptNo receiptNo;
+
+            RETURN;
+         END;
+
+
+
+      EXEC P_GETNEXTID 'S5EVENT', @receiptNo OUTPUT;
+
+
+      EXEC dbo.U5PRO_CHECK_PERSON @workno, @workno
+
+
+
+      INSERT INTO R5EVENTS                                    --添加工单语句 -跟设备，部门
+                           (EVT_CODE,
+                            EVT_DESC,
+                            EVT_TYPE,
+                            EVT_RTYPE,
+                            EVT_STATUS,
+                            EVT_RSTATUS,
+                            EVT_ORG,
+                            EVT_JOBTYPE,
+                            EVT_OBTYPE,
+                            EVT_OBRTYPE,
+                            EVT_OBJECT,
+                            EVT_OBJECT_ORG,
+                            EVT_DURATION,
+                            EVT_DATE,
+                            EVT_MRC,
+                            EVT_ENTEREDBY,
+                            EVT_ORIGIN,
+                            EVT_UDFCHAR06,
+                            EVT_UDFCHAR08,
+                            EVT_UDFCHAR10,
+                            EVT_UDFCHAR11,
+                            EVT_UDFCHAR02,
+                            EVT_UDFCHAR22,
+                            EVT_UDFCHAR13,
+                            EVT_UDFCHAR14,
+                            EVT_UDFCHAR17,
+                            EVT_UDFCHAR04)
+      VALUES (@receiptNo,
+              N'资产验收 ' + CONVERT (VARCHAR (100), GETDATE (), 23),
+              'JOB',
+              'JOB',
+              'YS10',
+              'R',
+              @corp,
+              '10YS',                                                     --固定
+              'A',                                                        --固定
+              'A',                                                        --固定
+              '*',                                                      --设备编码
+              '*',
+              1,                                                        --设备组织
+              GETDATE (),
+              '*',
+              'R5',
+              @workNo,
+              @supplierCode,
+              @ouCode,
+              @poNumber,
+              @acceptNumber,
+              @acceptanceLineId,
+              ISNULL (@acceptanceLineOfHEMA, ''),
+              @unitPriceTaxIncluded,
+              @taxRate,
+              @amountTaxIncluded,
+              @orderType)
+   END TRY
+   BEGIN CATCH
+      SELECT @flag = 'E',
+             @message = ERROR_MESSAGE ();
+   END CATCH
+
+   ---便于Mybatis获取结果。
+   SELECT @flag AS flag, @message AS message, @receiptNo receiptNo;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+-- =============================================
+-- Version 2.0
+-- Author:Steve Zhang
+-- Create date:  2018年8月24日15:17:03
+-- Description: 手动创建验收单
+-- Updated by Joey Wang on 12 Dec 2018
+-- Remark: Disable trigger when inserting MEC WO
+--         rewrite to create the asset with the actual part code instead of update afterwards
+-- =============================================
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_RECEIPT_MANUAL]
+    @ouCode NVARCHAR(80),
+    @corp NVARCHAR(15),
+    @partCode NVARCHAR(80),
+    @number INT,
+    @workNo NVARCHAR(30),
+    @flag NVARCHAR(1) OUTPUT,
+    @message NVARCHAR(2000) OUTPUT,
+    @receiptNo NVARCHAR(30) OUTPUT,
+    @org NVARCHAR(15) OUTPUT
+WITH EXEC AS CALLER
+AS
+DECLARE @nchk INT;
+DECLARE @ncount INT;
+DECLARE @objclass NVARCHAR(8);
+DECLARE @objcate NVARCHAR(30);
+DECLARE @TDNCODE NVARCHAR(80);
+DECLARE @OBJCODE NVARCHAR(80);
+DECLARE @sEvtCode NVARCHAR(30);
+DECLARE @faCode NVARCHAR(30);
+DECLARE @faId NVARCHAR(30);
+DECLARE @sql NVARCHAR(100); --Added by Joey Wang on 12 Dec 2018
+DECLARE @objdescZH NVARCHAR(80); --Added by Joey Wang on 12 Dec 2018
+DECLARE @objDescEn NVARCHAR(80); --Added by Joey Wang on 12 Dec 2018
+DECLARE @taskCode NVARCHAR(30); --Added by Joey Wang on 12 Dec 2018
+
+DECLARE @sEvtReported  NVARCHAR(30);
+DECLARE @sEvtTarget  NVARCHAR(30);
+DECLARE @sEVTSchedend  NVARCHAR(30);
+DECLARE @sEvtCalStatus  NVARCHAR(30);
+DECLARE @sEvtFixed  NVARCHAR(30);
+
+BEGIN
+    SET @flag = 'S';
+    PRINT N'Start';
+    PRINT CONVERT(NVARCHAR(15),
+                  GETDATE(),
+                  114); --Debug
+    BEGIN TRY
+        EXEC dbo.U5PRO_CHECK_PERSON @workNo, @workNo;
+        EXEC P_GETNEXTID 'S5EVENT', @receiptNo OUTPUT;
+
+        INSERT INTO R5EVENTS (EVT_UDFCHKBOX02,
+                              EVT_CODE,
+                              EVT_DESC,
+                              EVT_ENTEREDBY,
+                              EVT_JOBTYPE,
+                              EVT_TYPE,
+                              EVT_RTYPE,
+                              EVT_STATUS,
+                              EVT_RSTATUS,
+                              EVT_ORG,
+                              EVT_OBTYPE,
+                              EVT_OBRTYPE,
+                              EVT_DATE,
+                              EVT_MRC,
+                              EVT_UDFCHAR08,
+                              EVT_DURATION,
+                              EVT_OBJECT,
+                              EVT_OBJECT_ORG,
+                              EVT_UDFCHAR18,
+                              EVT_UDFNUM01,
+                              EVT_ORIGIN)
+        VALUES ('+',
+                @receiptNo,
+                N'手动新增 Manual Creation' + CONVERT(VARCHAR(100),
+                                                  GETDATE(),
+                                                  23),
+                N'R5',
+                '100YS',
+                'JOB',
+                'JOB',
+                'YS10',
+                'R',
+                @corp,
+                'A',
+                'A',
+                GETDATE(),
+                '*',
+                @ouCode,
+                1,
+                '*',
+                '*',
+                           --      NULL,
+                @partCode, --Changed by Joey Wang on 12 Dec 2018
+                @number,
+                @workNo);
+                
+         SELECT  @sEvtReported = EVT_REPORTED,
+                 @sEvtTarget = EVT_TARGET,
+                 @sEVTSchedend = EVT_SCHEDEND,
+                 @sEvtCalStatus = EVT_CALSTATUS,
+                 @sEvtFixed = EVT_FIXED
+            FROM R5EVENTS
+            WHERE EVT_CODE = @receiptNo;
+
+        SET @ncount = 0;
+        SELECT @objcate = PAR_CATEGORY,
+               @objclass = PAR_CLASS,
+               @objDescEn = dbo.R5O7_O7GET_DESC('EN',
+                                                'PART',
+                                                PAR_CODE,
+                                                '',
+                                                ''), --Added by Joey Wang on 12 Dec 2018
+               @objdescZH = PAR_DESC                 --Added by Joey Wang on 12 Dec 2018
+        FROM R5PARTS
+        WHERE PAR_CODE = @partCode;
+
+        SELECT TOP 1
+               @faCode = LMD_FINANCECATETORY,
+               @faId = LMD_FINANCECATETORYID
+        FROM U5PARTCATEGORY
+        WHERE LMD_PARTCODE = @partCode
+              AND LMD_FINANCESYSTEM = @corp;
+        --and LMD_USAGECODE = 'MANUAL_OFFICE';
+
+        WHILE @ncount < @number
+        BEGIN
+            BEGIN TRAN;
+            --1 创建资产，需要根据大阿里编号规则来创建，
+--            EXEC U5PRO_GETNEXTOBJCODE @TDNCODE OUTPUT;
+--            if @number > 100
+--              BEGIN
+              EXEC P_GETNEXTID 'U5OBJECTTDN', @OBJCODE OUTPUT;
+              SET @TDNCODE =
+                  'TDN'
+                + RIGHT ('000000000000' + CAST (@OBJCODE AS VARCHAR (12)),
+                         12); 
+--              END
+--            else
+--              begin
+--              EXEC U5PRO_GETNEXTOBJCODE @TDNCODE OUTPUT;
+--              END
+               
+            INSERT INTO R5OBJECTS (OBJ_OBTYPE,
+                                   OBJ_OBRTYPE,
+                                   OBJ_GROUP,
+                                   OBJ_USER,
+                                   OBJ_CODE,
+                                   OBJ_DESC,
+                                   OBJ_CATEGORY,
+                                   OBJ_CLASS,
+                                   OBJ_CLASS_ORG,
+                                   OBJ_MRC,
+                                   OBJ_ORG,
+                                   OBJ_STATUS,
+                                   OBJ_PART,
+                                   OBJ_PART_ORG,
+                                   OBJ_COMMISS,
+                                   OBJ_UDFCHAR31,
+                                   OBJ_UDFCHAR33,
+                                   OBJ_UDFCHAR12,
+                                   OBJ_UDFCHAR22,
+                                   OBJ_UDFCHKBOX02)
+            VALUES ('A',
+                    'A',
+                    'R5',
+                    'R5',
+                    @TDNCODE,
+                                --  N'临时设备描述',
+                    @objdescZH, --Added by Joey Wang on 12 Dec 2018
+                    @objcate,
+                    @objclass,
+                    '*',
+                    '*',
+                    @corp,
+                    'A01',
+                    @partCode,
+                    '*',
+                    GETDATE(),
+                    @faCode,
+                    @faId,
+                    @workNo,
+                    dbo.R5O7_O7GET_DESC('ZH',
+                                        'PERS',
+                                        @workNo,
+                                        '',
+                                        ''),
+                    '');
+            UPDATE R5DESCRIPTIONS
+            SET DES_TEXT = @objDescEn, --Added by Joey Wang on 12 Dec 2018
+                DES_TRANS = '+'
+            WHERE DES_CODE = @TDNCODE
+                  AND DES_ENTITY = 'OBJ'
+                  AND DES_LANG = 'EN';
+            --PRINT CONVERT(NVARCHAR(5),
+            --              @ncount);
+            --PRINT @TDNCODE;
+            --PRINT CONVERT(NVARCHAR(15),
+            --              GETDATE(),
+            --              114); --Debug
+            EXEC P_GETNEXTID 'S5EVENT', @sEvtCode OUTPUT;
+            INSERT INTO R5EVENTS --添加子工单语句 -跟设备，部门
+            (EVT_CODE,
+             EVT_DESC,
+             EVT_TYPE,
+             EVT_RTYPE,
+             EVT_STATUS,
+             EVT_RSTATUS,
+             EVT_ORG,
+             EVT_JOBTYPE,
+             EVT_OBTYPE,
+             EVT_OBRTYPE,
+             EVT_OBJECT,
+             EVT_OBJECT_ORG,
+             EVT_DATE,
+             EVT_MRC,
+             EVT_DURATION,
+             EVT_REPORTED,
+             EVT_TARGET,
+             EVT_SCHEDEND,
+             EVT_ENTEREDBY,
+             EVT_PARENT,
+             EVT_ROUTEPARENT,
+             EVT_CALSTATUS,
+             EVT_FIXED)
+            VALUES(@sEvtCode,
+                   N'手动新增 Manual Creation' + CONVERT(VARCHAR(100),
+                                                  GETDATE(),
+                                                  23),
+                   'JOB',
+                   'JOB',
+                   'YS10',
+                   'R',
+                   @corp,
+                   'MEC',    --固定
+                   'A',      --固定
+                   'A',      --固定
+                   @TDNCODE, --设备编码
+                   @corp,    --设备组织
+                   GETDATE(),
+                   '*',      ---设备部门
+                   1,
+                   @sEvtReported,
+                   @sEvtTarget,
+                   @sEVTSchedend,
+                   'R5',
+                   @receiptNo,
+                   @receiptNo,
+                   @sEvtCalStatus,
+                   @sEvtFixed);
+            --PRINT CONVERT(NVARCHAR(5),
+            --              @ncount);
+            --PRINT @sEvtCode;
+            --PRINT CONVERT(NVARCHAR(15),
+            --              GETDATE(),
+            --              114); --Debug
+            SET @ncount = @ncount + 1;
+            COMMIT TRAN;
+
+        END;
+        
+
+        
+        
+        
+        /*   UPDATE R5EVENTS
+        SET EVT_UDFCHAR18 = @partCode
+        WHERE EVT_CODE = @receiptNo;*/
+        --Changed by Joey Wang on 12 Dec 2018
+        SELECT @taskCode = OPA_DESC
+        FROM R5ORGANIZATIONOPTIONS
+        WHERE OPA_CODE = '@YSBZ'
+              AND OPA_ORG = @corp;
+        INSERT INTO R5ACTIVITIES --创建标准验收项目1- 检查表
+        (ACT_TASK,
+         ACT_TRADE,
+         ACT_ACT,
+         ACT_EVENT,
+         ACT_MRC,
+         ACT_START,
+         ACT_QTY,
+         ACT_EST,
+         ACT_REM,
+         ACT_TIME,
+         ACT_PERSONS,
+         ACT_DURATION,
+         ACT_NOTE,
+         ACT_TASKREV)
+        VALUES (@taskCode, '*', 10, @receiptNo, '*', GETDATE(), 1, 1, 1, 1, 1, 1, N'验收标准 ReceiptCheckList', 0);
+
+        PRINT N'Insert Activities';
+        PRINT CONVERT(NVARCHAR(15),
+                      GETDATE(),
+                      114); --Debug
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+    SET @org = @corp; --Added by Joey Wang on 12 Dec 2018
+    ---以便Mybatis获取返回结果。
+    SELECT @flag AS flag,
+           @message AS message,
+           @receiptNo receiptNo,
+           @org org;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+-- =============================================
+-- Author:Jason.Zhao
+-- Create date:  2018-Jul-24
+-- Description: 创建资产信息以及验收单行
+-- =============================================
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_RECVLINE]
+    @sUserCode NVARCHAR(30),      --Receiver
+    @pEvtCode NVARCHAR(30),       --Receipt No.
+    @evtUdf01 NVARCHAR(80),       --Purchase Category
+    @evtUdf02 NVARCHAR(80),       --Shipment Line ID
+    @obj_Commiss NVARCHAR(10),    --Date of commission
+    @obj_Org NVARCHAR(15),        --Organization
+    @OBJ_UDFCHAR03 NVARCHAR(80),  --OU
+    @OBJ_UDFCHAR04 NVARCHAR(80),  --Orientation Type
+    @OBJ_UDFCHAR10 NVARCHAR(80),  -- PO Number
+    @OBJ_UDFCHAR11 NVARCHAR(80),  --Shipment Notice No.
+    @OBJ_UDFCHAR17 NVARCHAR(80),  --Original Config Info.
+    @OBJ_UDFCHAR29 NVARCHAR(80),  --Finance Book
+    @OBJ_UDFCHAR30 NVARCHAR(80),  --Currency
+    @OBJ_VALUE NUMERIC(24, 6),    --Unit price in purchasing Currency
+    @OBJ_UDFCHAR31 NVARCHAR(80),  --Finance Category Code
+    @OBJ_UDFCHKBOX02 NVARCHAR(1), --Tax Inclusive
+    @evtUdf22 NVARCHAR(30),       --Responsible Person
+    @qty INT,                     --Quantity,
+    @flag NVARCHAR(1) OUTPUT,
+    @message NVARCHAR(2000) OUTPUT
+AS
+DECLARE @sUserGroup NVARCHAR(15);
+DECLARE @ncount INT;
+DECLARE @sEvtCode BIGINT;
+DECLARE @nchk INT;
+DECLARE @TDNCODE BIGINT;
+DECLARE @ReservedTDNCODE NVARCHAR(80);
+DECLARE @obj_code NVARCHAR(30); --Asset Code Added by Joey Wang on 11 Dec 2018
+DECLARE @Sql NVARCHAR(100); --Asset Code Added by Joey Wang on 11 Dec 2018
+
+BEGIN
+    SET NOCOUNT ON;
+    SET @flag = N'S';
+    ---在此处增加校验逻辑--
+
+    ---校验人员是否存在
+    SELECT --@sUserGroup = UOG_GROUP
+        @nchk = COUNT(1)
+    FROM R5PERSONNEL
+    WHERE PER_CODE = @sUserCode;
+
+    IF @nchk = 0
+    BEGIN
+
+        INSERT INTO R5PERSONNEL (PER_CODE, PER_DESC, PER_MRC, PER_TRADE, PER_NOTUSED, PER_ORG, PER_CREATED)
+        VALUES (@sUserCode, @sUserCode, '*', '*', '-', @obj_Org, GETDATE());
+
+        RETURN;
+    END;
+
+    ---校验验收单是否存在，状态是否存在。
+
+    SELECT @nchk = COUNT(1)
+    FROM R5EVENTS
+    WHERE EVT_CODE = @pEvtCode
+          AND EVT_JOBTYPE = '10YS';
+
+    IF @nchk = 0
+    BEGIN
+        SELECT @flag = 'E',
+               @message = N'验收单不存在或者不允许添加行';
+
+        SELECT @flag AS flag,
+               @message AS message;
+
+        RETURN;
+    END;
+
+    SELECT @nchk = COUNT(1)
+    FROM R5EVENTS
+    WHERE EVT_CODE = @pEvtCode
+          AND EVT_JOBTYPE = '10YS'
+          AND EVT_UDFCHAR02 = @evtUdf02
+          AND EVT_UDFCHAR10 = @OBJ_UDFCHAR10
+    --增加盒马行行ID校验
+    --AND EVT_UDFCHAR22 = @evtUdf22
+    ;
+
+    IF @nchk = 0
+    BEGIN
+        SELECT @flag = 'E',
+               @message = N'验收单PO,发运行ID与本次添加的不一致。';
+
+        SELECT @flag AS flag,
+               @message AS message;
+
+        RETURN;
+    END;
+
+    BEGIN TRY
+        SET @Sql = 'ALTER TABLE r5events DISABLE TRIGGER POSINS_EVT'; --Added by Joey Wang on 11 Dec 2018
+        EXECUTE (@Sql);
+        --SET @Sql = 'ALTER TABLE r5events DISABLE TRIGGER POSINS_EVT_S'; --Added by Joey Wang on 11 Dec 2018
+        --EXECUTE (@Sql);
+        SET @ncount = 1;
+
+        WHILE @ncount <= @qty
+        BEGIN
+--            SET @nchk = 0;
+            --1 创建资产，需要根据大阿里编号规则来创建，
+
+--            SELECT @nchk = COUNT(1)
+--            FROM U5_OBJECTS_NOTUSED;
+
+--            IF @nchk > 0
+--            BEGIN
+--                SELECT TOP 1
+--                       @ReservedTDNCODE = OBJ_CODE
+--                FROM U5_OBJECTS_NOTUSED;
+--
+--                DELETE FROM U5_OBJECTS_NOTUSED
+--                WHERE OBJ_CODE = @ReservedTDNCODE;
+--            END;
+--            ELSE
+            
+            EXEC P_GETNEXTID 'U5OBJECTTDN', @TDNCODE OUTPUT;
+            
+            SET @obj_code = 'TDN' + RIGHT('000000000000' + CAST(@TDNCODE AS VARCHAR(12)), 12); --Create the Asset number before inserting asset
+            BEGIN TRAN;
+            INSERT INTO R5OBJECTS (OBJ_OBTYPE,
+                                   OBJ_OBRTYPE,
+                                   OBJ_GROUP,
+                                   OBJ_USER,
+                                   OBJ_CODE,
+                                   OBJ_DESC,
+                                   OBJ_CATEGORY,
+                                   OBJ_CLASS,
+                                   OBJ_CLASS_ORG,
+                                   OBJ_MRC,
+                                   OBJ_ORG,
+                                   OBJ_STATUS,
+                                   OBJ_PART,
+                                   OBJ_PART_ORG,
+                                   OBJ_COMMISS,
+                                   OBJ_UDFCHAR03,
+                                   OBJ_UDFCHAR04,
+                                   OBJ_UDFCHAR10,
+                                   OBJ_UDFCHAR11,
+                                   OBJ_UDFCHAR12,
+                                   OBJ_UDFCHAR22,
+                                   OBJ_UDFCHAR17,
+                                   OBJ_UDFCHAR29,
+                                   OBJ_UDFCHAR30,
+                                   OBJ_VALUE,
+                                   OBJ_UDFCHAR31,
+                                   OBJ_UDFCHKBOX02,
+                                   OBJ_UDFCHAR09) --发运行ID 2018-Aug-10
+            VALUES ('A',                        --设备类型
+                    'A',                        --设备类型
+                    'R5',                       --@sUserGroup,                                --用户所在用户组
+                    'R5',                       --@sUserCode,                                      --用户
+                                                /*  ISNULL(@ReservedTDNCODE,
+                           'TDN' + RIGHT('000000000000' + CAST(@TDNCODE AS VARCHAR(12)), 12))*/
+                    @obj_code,                  --设备编码
+                    N'临时设备描述',                  --设备描述
+                    '*',                        --设备子类
+                    '*',                        --设备分类
+                    '*',                        --设备分类公司
+                    '*',                        --部门
+                    @obj_Org,                   --公司
+                    'I00',                      --状态
+                    '*',                        --物料号
+                    '*',                        --物料号所属公司
+                    CAST(@obj_Commiss AS DATE), --启用日期，默认为当前时间
+                    @OBJ_UDFCHAR03,
+                    @OBJ_UDFCHAR04,
+                    @OBJ_UDFCHAR10,
+                    @OBJ_UDFCHAR11,
+                    @sUserCode,
+                    dbo.R5O7_O7GET_DESC('ZH',
+                                        'PERS',
+                                        @sUserCode,
+                                        '',
+                                        ''),
+                    @OBJ_UDFCHAR17,
+                    @OBJ_UDFCHAR29,
+                    @OBJ_UDFCHAR30,
+                    @OBJ_VALUE,
+                    @OBJ_UDFCHAR31,
+                    @OBJ_UDFCHKBOX02,
+                    @evtUdf02);
+
+            EXECUTE P_GETNEXTID 'S5EVENT', @sEvtCode OUTPUT;
+
+            INSERT INTO R5EVENTS --添加子工单语句 -跟设备，部门
+            (EVT_CODE,
+             EVT_DESC,
+             EVT_TYPE,
+             EVT_RTYPE,
+             EVT_STATUS,
+             EVT_RSTATUS,
+             EVT_ORG,
+             EVT_JOBTYPE,
+             EVT_OBTYPE,
+             EVT_OBRTYPE,
+             EVT_OBJECT,
+             EVT_OBJECT_ORG,
+             EVT_DATE,
+             EVT_MRC,
+             EVT_DURATION,
+             EVT_REPORTED,
+             EVT_TARGET,
+             EVT_SCHEDEND,
+             EVT_ENTEREDBY,
+             EVT_PARENT,
+             EVT_ROUTEPARENT,
+             EVT_CALSTATUS,
+             EVT_FIXED,
+             EVT_UDFCHAR01,
+             EVT_UDFCHAR02)
+            SELECT @sEvtCode,
+                   EVT_DESC,
+                   EVT_TYPE,
+                   EVT_RTYPE,
+                   EVT_STATUS,
+                   EVT_RSTATUS,
+                   EVT_ORG,
+                   'MEC',     --固定
+                   'A',       --固定
+                   'A',       --固定
+                              /*  ISNULL(@ReservedTDNCODE,
+                          'TDN' + RIGHT('000000000000' + CAST(@TDNCODE AS VARCHAR(12)), 12))*/
+                   @obj_code, --设备编码
+                   @obj_Org,  --设备组织
+                   EVT_DATE,
+                   '*',       ---设备部门
+                   EVT_DURATION,
+                   EVT_REPORTED,
+                   EVT_TARGET,
+                   EVT_SCHEDEND,
+                   EVT_ENTEREDBY,
+                   EVT_CODE,
+                   EVT_CODE,
+                   EVT_CALSTATUS,
+                   EVT_FIXED,
+                   @evtUdf01,
+                   @evtUdf02
+            FROM R5EVENTS
+            WHERE EVT_CODE = @pEvtCode;
+            INSERT INTO dbo.R5EVENTOBJECTS (EOB_EVENT,
+                                            EOB_OBTYPE,
+                                            EOB_OBRTYPE,
+                                            EOB_OBJECT,
+                                            EOB_LEVEL,
+                                            EOB_ROLLUP,
+                                            EOB_DOWNTIME,
+                                            EOB_OBJECT_ORG)
+            VALUES (@sEvtCode, -- EOB_EVENT - nvarchar(30)
+                    N'A',      -- EOB_OBTYPE - nvarchar(4)
+                    N'A',      -- EOB_OBRTYPE - nvarchar(4)
+                    @obj_code, -- EOB_OBJECT - nvarchar(30)
+                    0,         -- EOB_LEVEL - numeric(3, 0)
+                    N'+',      -- EOB_ROLLUP - nvarchar(1)
+                    N'+',      -- EOB_DOWNTIME - nvarchar(1)
+                    @obj_Org   -- EOB_OBJECT_ORG - nvarchar(15)
+                );
+            COMMIT TRAN;
+            PRINT @ncount; --Debug
+            PRINT CONVERT(NVARCHAR(30),
+                          GETDATE(),
+                          114); --Debug
+            PRINT @sEvtCode;
+
+            SET @ncount = @ncount + 1;
+        END;
+        SET @Sql = 'ALTER TABLE r5events ENABLE TRIGGER POSINS_EVT'; --Added by Joey Wang on 11 Dec 2018
+        EXECUTE (@Sql);
+    --SET @Sql = 'ALTER TABLE r5events ENABLE TRIGGER POSINS_EVT_S'; --Added by Joey Wang on 11 Dec 2018
+    --EXECUTE (@Sql);
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+    ---以便Mybatis获取返回结果。
+    SELECT @flag AS flag,
+           @message AS message;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREUPD_OBJECTS]
+  @assetCode     NVARCHAR(30)
+ ,@locationCode  NVARCHAR(80)
+ ,@model         NVARCHAR(30)
+ ,@partCode      NVARCHAR(30)
+ ,@serialNo      NVARCHAR(30)
+ ,@storeCode     NVARCHAR(30)
+ ,@corp          NVARCHAR(30)
+ ,@brand         NVARCHAR(30)
+ ,@supplierName  NVARCHAR(30)
+ ,@usageNote     NVARCHAR(80)
+ ,@userNo        NVARCHAR(80)
+ ,@depNo         NVARCHAR(80)
+ ,@configChange  NVARCHAR(80)
+ ,@locationNote  NVARCHAR(80)
+ ,@ouCode        NVARCHAR(80)
+ ,@poNumber      NVARCHAR(80)
+ ,@currencyCode  NVARCHAR(30)
+ ,@taxInclusive  NVARCHAR(30)
+ ,@unitPrice     NVARCHAR(30)
+ ,@standardCoin  NVARCHAR(30)
+ ,@withTaxPrice  NVARCHAR(30)
+ ,@noTaxPrice    NVARCHAR(30)
+ ,@taxRate       NVARCHAR(30)
+ ,@calDate       NVARCHAR(30)
+  WITH
+  EXEC AS CALLER
+AS
+DECLARE
+  @ncount      INT
+,  @flag        NVARCHAR(1) = N'S'
+,  @message     NVARCHAR(2000)
+,  @receiptNo   BIGINT;
+
+BEGIN
+  BEGIN TRY
+    IF isnull(
+         @assetCode
+        ,'-') = '-'
+      BEGIN
+        SELECT
+        @flag    = 'E'
+       ,@message = N'大阿里编号为空，创建资产信息'
+      END
+    ELSE
+      SELECT
+      @ncount = count(1)
+      FROM
+      r5objects
+      WHERE
+      obj_code = @assetCode; --AND obj_org = @corp;
+
+    IF @ncount = 1
+      BEGIN
+        SELECT
+        @receiptNo = evt_parent
+        FROM
+        r5events
+        WHERE
+        evt_parent IS NOT NULL AND
+        evt_object = @assetCode;
+
+        UPDATE
+          R5OBJECTS
+        SET
+--          OBJ_LOCATION          = isnull(
+--                                    @LOCATIONCODE
+--                                   ,obj_location)
+--         ,OBJ_LOCATION_ORG      = isnull(
+--                                    @LOCATIONCODE
+--                                   ,obj_location_org)
+         OBJ_UDFCHAR15      = isnull(
+                                    @LOCATIONCODE
+                                   ,OBJ_UDFCHAR15)
+         ,OBJ_MANUFACTMODEL     = isnull(@MODEL,OBJ_MANUFACTMODEL)
+         ,OBJ_PART              = isnull(@PARTCODE,OBJ_PART)
+         ,OBJ_PART_ORG          = '*'
+         ,--           OBJ_SERIALNO=@SERIALNO,
+          OBJ_STORE             = isnull(@STORECODE,OBJ_STORE)
+         ,OBJ_UDFCHAR05         = isnull(
+                                    @BRAND
+                                   ,OBJ_UDFCHAR05)
+         ,OBJ_UDFCHAR06         = isnull(
+                                    @SUPPLIERNAME
+                                   ,OBJ_UDFCHAR06)
+         ,OBJ_UDFCHAR07         = isnull(
+                                    @USAGENOTE
+                                   --,OBJ_UDFCHAR07)
+                                   ,'U01')
+         ,OBJ_UDFCHAR13         = isnull(
+                                    @USERNO
+                                   ,OBJ_UDFCHAR13)
+         ,OBJ_UDFCHAR14         = isnull(
+                                    @DEPNO
+                                   ,OBJ_UDFCHAR14)
+         ,OBJ_UDFCHAR16         = isnull(
+                                    @CONFIGCHANGE
+                                   ,OBJ_UDFCHAR16)
+         ,OBJ_UDFCHAR27         = isnull(
+                                    @LOCATIONNOTE
+                                   ,OBJ_UDFCHAR27)
+         ,OBJ_UDFCHAR03         = isnull(
+                                    @ouCode
+                                   ,OBJ_UDFCHAR03)
+         ,OBJ_UDFCHAR10         = isnull(
+                                    @poNumber
+                                   ,OBJ_UDFCHAR10)
+         ,OBJ_UDFCHAR30         = isnull(
+                                    @currencyCode
+                                   ,OBJ_UDFCHAR30)
+         ,OBJ_UDFCHKBOX02         = isnull(
+                                    @taxInclusive
+                                   ,OBJ_UDFCHKBOX02)
+         ,OBJ_VALUE         = isnull(
+                                    @unitPrice
+                                   ,OBJ_VALUE)
+         ,OBJ_UDFCHAR35         = isnull(
+                                    @standardCoin
+                                   ,OBJ_UDFCHAR35)
+         ,OBJ_UDFCHAR36         = isnull(
+                                    @withTaxPrice
+                                   ,OBJ_UDFCHAR36)
+         ,OBJ_UDFCHAR37         = isnull(
+                                    @noTaxPrice
+                                   ,OBJ_UDFCHAR37)
+         ,OBJ_UDFCHAR38         = isnull(
+                                    @taxRate
+                                   ,OBJ_UDFCHAR38)
+         ,OBJ_UDFCHAR39         = isnull(
+                                    @calDate
+                                   ,OBJ_UDFCHAR39)
+                                   
+                                   
+        WHERE
+          OBJ_CODE = @ASSETCODE AND
+          OBJ_ORG = @CORP;
+      END
+    ELSE
+      SELECT
+      @flag    = 'E'
+     ,@message = N'大阿里编号不存在'
+  END TRY
+  BEGIN CATCH
+    SELECT
+    @flag    = 'E'
+   ,@message = error_message()
+  END CATCH
+
+  SELECT
+    @flag AS flag
+   ,@message AS message
+   ,@assetCode AS param2
+   ,@receiptNo AS receiptNo
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_DELETE_RECEIPT]
+  @receiptNo VARCHAR(80)
+  WITH
+  EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+DECLARE @flag   VARCHAR(1);
+DECLARE @message   VARCHAR(200);
+DECLARE @assetCode   VARCHAR(80);
+
+BEGIN
+  SET @flag    = N'S';
+  SET @message = N'Success';
+
+  BEGIN TRY
+    SELECT
+    @ncount = count(1)
+    FROM
+    r5events
+    WHERE
+    evt_code = @receiptNo;
+
+    IF @ncount < 1
+      BEGIN
+        SELECT
+        @flag    = N'E';
+        SELECT
+        @message = N'Receipt does not exist';
+      END
+    ELSE
+      BEGIN
+        DECLARE
+          assetCursor CURSOR LOCAL FOR
+            SELECT
+              evt_object
+            FROM
+              r5events
+            WHERE
+              evt_parent = @receiptNo;
+              
+        
+
+        ----Delete activities
+        DELETE FROM
+          R5ACTCHECKLISTS
+        WHERE
+          ACK_EVENT = @receiptNo;
+
+        DELETE FROM
+          R5ACTIVITIES
+        WHERE
+          ACT_EVENT = @receiptNo;
+
+
+
+        BEGIN
+          OPEN assetCursor
+        FETCH NEXT FROM assetCursor
+            INTO
+              @assetCode
+
+          WHILE @@FETCH_STATUS = 0
+          BEGIN
+            DELETE FROM
+              r5events
+            WHERE
+              EVT_PARENT = @receiptNo
+            AND
+              EVT_OBJECT = @assetCode; --删除子工单
+            DELETE FROM
+              r5objects --删除子工单对应的设备
+            WHERE
+              OBJ_CODE = @assetCode --and OBJ_STATUS = 'C01'
+              AND
+              OBJ_OBTYPE = 'A'
+
+            FETCH NEXT FROM assetCursor
+              INTO
+                @assetCode
+          END
+        END
+
+        CLOSE assetCursor
+        DEALLOCATE assetCursor
+
+        DELETE FROM
+          r5events
+        WHERE
+          EVT_CODE = @receiptNo; --删除工单
+      END
+  END TRY
+  BEGIN CATCH
+    SELECT
+    @message = ERROR_MESSAGE() + N'Failed to delete'
+   ,@flag    = N'E';
+  END CATCH
+
+  SELECT
+    @flag AS flag
+   ,@message AS message;
+END
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE dbo.U5PRO_DELMECWO
+    /************************************
+*Author: Joey Wang
+*Date Created: 7 Dec 2018
+*Remark: To delete MEC wo and parent WO
+*        to support auto-testing 
+*************************************/
+    @WONumber NVARCHAR(30)
+WITH EXEC AS CALLER
+AS
+DECLARE @chk1 NUMERIC(10),
+        @errMsg NVARCHAR(500);
+BEGIN
+    SELECT @chk1 = COUNT(1) -- Check if there is children WO
+    FROM R5EVENTS
+    WHERE EVT_JOBTYPE = 'MEC'
+          AND EVT_PARENT = @WONumber;
+    IF @chk1 > 0
+    BEGIN TRY
+    BEGIN TRAN
+        DELETE FROM dbo.R5EVENTS --Delete children WO
+        WHERE EVT_JOBTYPE = 'MEC'
+              AND EVT_PARENT = @WONumber;
+        DELETE FROM dbo.R5EVENTOBJECTS
+        WHERE EXISTS (   SELECT 1
+                         FROM R5EVENTS
+                         WHERE EOB_EVENT = EVT_CODE
+                               AND EVT_PARENT = @WONumber);
+     COMMIT TRAN
+    END TRY
+    BEGIN CATCH
+        SET @errMsg = ERROR_MESSAGE();
+        SET @errMsg = N'删除子工单失败！U5PRO_DELMECWO' + @errMsg;
+        EXEC dbo.U5RAE '', @errMsg;
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END CATCH;
+
+    SET @chk1 = 0; --Check if there is transactions
+    SELECT @chk1 = COUNT(1)
+    FROM R5TRANSLINES;
+    IF @chk1 > 0
+    BEGIN TRY
+        DELETE FROM R5TRANSLINES --Delete transline
+        WHERE TRL_EVENT = @WONumber;
+
+        DELETE FROM dbo.R5TRANSACTIONS -- Delete transactions
+        WHERE TRA_TOCODE = @WONumber;
+    ---   COMMIT;
+    END TRY
+    BEGIN CATCH
+        SET @errMsg = ERROR_MESSAGE();
+        SET @errMsg = N'删除库存交易失败！U5PRO_DELMECWO' + @errMsg;
+        EXEC dbo.U5RAE '', @errMsg;
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END CATCH;
+    BEGIN TRY
+        SELECT @chk1 = COUNT(1)
+        FROM R5EVENTS
+        WHERE EVT_CODE = @WONumber
+              AND EVT_RSTATUS = 'C';
+        IF @chk1 > 0
+        BEGIN
+            UPDATE R5EVENTS
+            SET EVT_STATUS = 'R',
+                EVT_RSTATUS = 'R'
+            WHERE EVT_CODE = @WONumber;
+        END;
+        DELETE FROM R5EVENTS --Delete WO itself
+        WHERE EVT_CODE = @WONumber;
+        DELETE FROM R5EVENTOBJECTS
+    WHERE eob_event = @WONumber;
+    END TRY
+    BEGIN CATCH
+        SET @errMsg = ERROR_MESSAGE();
+        SET @errMsg = N'删除父工单失败！U5PRO_DELMECWO' + @errMsg;
+        RAISERROR(@errMsg,
+                  16,
+                  1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END CATCH;
+
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_GETNEXTOBJCODE]
+   @objCode NVARCHAR (30) OUTPUT
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+declare @objId nvarchar(30);
+BEGIN
+   SELECT @ncount = count (1) FROM u5_objects_notused;
+
+   IF @ncount > 0
+      BEGIN
+         SELECT TOP 1
+                @objId = obj_code
+         FROM U5_OBJECTS_NOTUSED;
+
+         DELETE u5_objects_notused
+          WHERE obj_code = @objId;
+ 
+      END
+   ELSE
+      BEGIN
+         EXEC P_GETNEXTID 'U5OBJECTTDN', @objId OUTPUT;
+         SET @objId =
+                  'TDN'
+                + RIGHT ('000000000000' + CAST (@objId AS VARCHAR (12)),
+                         12); 
+      END;
+      set @objCode=@objId;
+END
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_JOB_CHKRETURNSTATUS]
+WITH EXEC AS CALLER
+AS
+
+DECLARE @OBJ_UDFCHAR01   NVARCHAR (80)
+DECLARE @OBJ_UDFCHAR05   NVARCHAR (80)
+DECLARE @OBJ_UDFCHAR13   NVARCHAR (80)
+DECLARE @OBJ_UDFCHAR34   NVARCHAR (80)
+DECLARE @OBJ_SERIALNO   NVARCHAR (80)
+DECLARE @OBJ_DESC   NVARCHAR (80)
+DECLARE @OBJ_MANUFACTMODEL   NVARCHAR (80)
+DECLARE @OBJECTLIST  NVARCHAR(4000)
+DECLARE @OBJ_CODE  NVARCHAR(80)
+DECLARE 
+  @evtCode    NVARCHAR(30),
+  @evtPerson  NVARCHAR(30),
+  @evtJobtype NVARCHAR(30),
+  @evtReqCode NVARCHAR(30),
+  @evtLocation  NVARCHAR(30),
+  @evtLeaveDate  NVARCHAR(30),
+  @evtReturnStr  NVARCHAR(30),
+  @personName  NVARCHAR(80),
+  @mailRule  nvarchar(80),
+  @NCOUNT INT
+
+
+Begin
+   DECLARE
+      EVTLIST CURSOR LOCAL FOR
+         SELECT EVT_CODE,
+                EVT_OBJECT,
+                EVT_ORIGIN,
+                EVT_JOBTYPE,
+                EVT_UDFCHAR01,
+                EVT_UDFDATE02,
+                EVT_UDFCHAR16
+           FROM R5EVENTS 
+          WHERE EVT_JOBTYPE = N'30LZ' AND
+                EVT_STATUS <> N'C' AND
+                  (DATEDIFF(
+                      DAY
+                     ,getdate()
+                     ,evt_udfdate02
+                      ) = 1 OR
+                   DATEDIFF(
+                      DAY
+                     ,getdate()
+                     ,evt_udfdate02
+                      ) = 7 OR
+                    DATEDIFF(
+                      DAY     
+                     ,getdate()
+                     ,evt_udfdate02
+                      ) = -1 OR
+                    DATEDIFF(
+                      DAY
+                     ,getdate()
+                     ,evt_udfdate02
+                      ) = -8) AND 
+                EVT_CLASS = N'IT' ---------不管有多少个离职单，只发送一次邮件   
+   OPEN EVTLIST
+   FETCH NEXT FROM EVTLIST
+        INTO @evtCode,
+             @evtLocation,
+             @evtPerson,
+             @evtJobtype,
+             @evtReqCode,
+             @evtLeaveDate,
+             @evtReturnStr
+
+   WHILE @@FETCH_STATUS = 0
+   BEGIN
+   
+      SELECT @personName = PER_DESC FROM R5PERSONNEL WHERE PER_CODE = @evtPerson;
+      SELECT @NCOUNT = COUNT(1) FROM R5EVENTS WHERE EVT_JOBTYPE = 'MEC' AND EVT_PARENT IN(SELECT EVT_CODE FROM R5EVENTS WHERE EVT_UDFCHAR01 = @evtReqCode);
+      
+      IF @NCOUNT > 0 
+      BEGIN
+        IF  DATEDIFF( DAY ,getdate() ,@evtLeaveDate) > 0 
+          SET @mailRule = 'Company';
+        ELSE
+          SET @mailRule = 'Personal';
+        SET @OBJECTLIST = N'';
+                        
+        ----拼接资产清单
+        DECLARE OBJECTLIST cursor LOCAL for
+           SELECT isnull(obj_udfchar13,'N/A'),
+                  isnull(obj_udfchar01,'N/A'),
+                  isnull(obj_udfchar05,'N/A'),
+                  isnull(OBJ_MANUFACTMODEL,'N/A'),
+                  isnull(OBJ_SERIALNO,'N/A'),
+                  isnull(obj_desc,'N/A'),
+                  isnull(obj_udfchar34,'N/A'),
+                  isnull(obj_code,'N/A')
+             FROM R5OBJECTS
+            WHERE OBJ_CODE IN (SELECT EVT_OBJECT FROM R5EVENTS WHERE EVT_PARENT IN (SELECT EVT_CODE FROM R5EVENTS WHERE EVT_UDFCHAR01 = @evtReqCode))
+        OPEN OBJECTLIST
+        FETCH NEXT FROM OBJECTLIST
+        INTO @OBJ_UDFCHAR13,
+            @OBJ_UDFCHAR01,
+            @OBJ_UDFCHAR05,
+            @OBJ_MANUFACTMODEL,
+            @OBJ_SERIALNO,
+            @OBJ_DESC,
+            @OBJ_UDFCHAR34,
+            @OBJ_CODE
+          
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+          
+        set @OBJECTLIST = @OBJECTLIST + @OBJ_DESC + N' | ' + @OBJ_UDFCHAR01 + N' | ' + @OBJ_CODE + N' | ' + @OBJ_UDFCHAR05 + N' | ' + @OBJ_MANUFACTMODEL + N' | ' + @OBJ_SERIALNO + N' | ' + @OBJ_UDFCHAR34 + N'</br>';
+          
+        print N'OBJECTLIST 是' + @OBJECTLIST;
+          
+          
+          
+        FETCH NEXT FROM OBJECTLIST
+        INTO @OBJ_UDFCHAR13,
+            @OBJ_UDFCHAR01,
+            @OBJ_UDFCHAR05,
+            @OBJ_MANUFACTMODEL,
+            @OBJ_SERIALNO,
+            @OBJ_DESC,
+            @OBJ_UDFCHAR34,
+            @OBJ_CODE
+        END
+        CLOSE OBJECTLIST
+        DEALLOCATE OBJECTLIST
+   
+        --触发员工催还邮件
+        INSERT INTO
+          r5mailevents(
+            mae_attribpk
+           ,mae_template
+           ,mae_ewsurl
+           ,mae_emailrecipient
+           ,mae_param1
+           ,mae_param2
+           ,mae_param3)
+          SELECT
+            N'10010'
+           ,N'ALI0004'
+           ,''
+           ,''
+           ,cast(@evtPerson AS NVARCHAR(4000))
+           ,@evtLeaveDate
+           ,@OBJECTLIST
+        
+        UPDATE
+          U5MAILEVENTRULE
+        SET
+          MER_RULECODE = @mailRule
+         ,MER_DATE     = getdate()
+        WHERE
+          MER_EVTSQLID = @@IDENTITY;    
+        
+        
+        
+        --触发员工主管通知   
+        INSERT INTO
+          r5mailevents(
+            mae_attribpk
+           ,mae_template
+           ,mae_ewsurl
+           ,mae_emailrecipient
+           ,mae_param1
+           ,mae_param2
+           ,mae_param3
+           ,mae_param4)
+          SELECT
+            N'10016'
+           ,N'ALI0010'
+           ,''
+           ,''
+           ,cast(@evtPerson AS NVARCHAR(4000))
+           ,@personName
+           ,cast(@evtPerson AS NVARCHAR(4000))
+           ,cast(@evtLeaveDate AS NVARCHAR(4000))
+           
+           
+           
+        UPDATE
+          U5MAILEVENTRULE
+        SET
+          MER_RULECODE = 'Superior'
+         ,MER_DATE     = getdate()
+        WHERE
+          MER_EVTSQLID = @@IDENTITY;   
+      END
+         
+      
+   FETCH NEXT FROM EVTLIST
+        INTO @evtCode,
+             @evtLocation,
+             @evtPerson,
+             @evtJobtype,
+             @evtReqCode,
+             @evtLeaveDate,
+             @evtReturnStr
+   END
+   
+   CLOSE EVTLIST;
+   DEALLOCATE EVTLIST;
+end ;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_JOB_PICKUPSTATUS]
+WITH EXEC AS CALLER
+AS
+Begin
+  update R5EVENTS
+  set evt_status='TS40'
+  WHERE EVT_STATUS='TS10'
+  AND EVT_UDFCHAR03=N'已邀约待报到'
+  AND EVT_JOBTYPE='20RZ'
+  AND CONVERT (VARCHAR, EVT_UDFDATE02, 23)
+  =CONVERT (VARCHAR, GETDATE (), 23);
+  
+end ;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_SET_OBJVALUESBYEVTCODE]
+   @evtCode BIGINT
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE
+   @L_split        NVARCHAR (1) = '#',
+   @L_NULLSTRING   NVARCHAR (1) = '-',
+   @L_PrvRentity   NVARCHAR (4) = 'OBJ';
+DECLARE
+   @acknotes    NVARCHAR (256),
+   @ackobject   NVARCHAR (30),
+   @ackorg      NVARCHAR (15),
+   @property    NVARCHAR (8),
+   @classcode   NVARCHAR (8),
+   @objsql      NVARCHAR (MAX);
+
+BEGIN
+   SET  NOCOUNT ON
+
+   DECLARE
+      CHECKLISTS CURSOR LOCAL FOR
+         SELECT ACKNOTES,
+                OBJCODE,
+                OBJORG,
+                ISNULL (CLASSCODE, '*'),
+                PRVPROPERTY
+           FROM U5FUN_GET_CHECKLISTSBYEVTCODE (@EVTCODE)
+          WHERE PRVPROPERTY IS NOT NULL;
+
+   OPEN checklists
+   FETCH NEXT FROM checklists
+        INTO @acknotes,
+             @ackobject,
+             @ackorg,
+             @classcode,
+             @property
+
+   WHILE @@FETCH_STATUS = 0
+   BEGIN
+      DECLARE @prv_code   NVARCHAR (80);
+      SELECT @prv_code = @ackobject + @L_split + @ackorg
+      EXEC U5PRO_SET_PROPERTYVALUES @property,
+                                    @L_PrvRentity,
+                                    @prv_code,
+                                    @acknotes,
+                                    @classcode
+
+      FETCH NEXT FROM checklists
+           INTO @acknotes,
+                @ackobject,
+                @ackorg,
+                @classcode,
+                @property
+   END
+
+   CLOSE checklists;
+   DEALLOCATE checklists;
+
+   DECLARE
+      objsql CURSOR LOCAL FOR
+         SELECT   'update r5objects set '
+                + (STUFF (
+                      (SELECT ',' + objField + '=N''' + ackNotes + ''' '
+                         FROM U5FUN_GET_CHECKLISTSBYEVTCODE (@evtCode) B
+                        WHERE     B.objcode = A.objcode
+                              AND B.objorg = A.objorg
+                              AND B.objField IS NOT NULL
+                       FOR XML PATH ( '' )),
+                      1,
+                      1,
+                      ''))
+                + ' where obj_code=N'''
+                + objcode
+                + ''' and obj_org=N'''
+                + objorg
+                + ''''
+                   AS sql
+           FROM U5FUN_GET_CHECKLISTSBYEVTCODE (@evtCode) A
+         GROUP BY A.objcode, A.objorg;
+
+
+   OPEN objsql
+   FETCH NEXT FROM objsql   INTO @objsql
+
+   WHILE @@FETCH_STATUS = 0
+   BEGIN
+      EXEC (@objsql)
+      FETCH NEXT FROM objsql   INTO @objsql
+   END
+
+   CLOSE objsql;
+   DEALLOCATE objsql;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_SET_PROPERTYVALUES]
+   @prvProperty    NVARCHAR (8),
+   @prvRentity      NVARCHAR (4),
+   @prvCode        NVARCHAR (100),
+   @prvValue       NVARCHAR (40),
+   @prvClass      nvarchar(8)
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+
+BEGIN
+   SELECT @ncount = count (1)
+     FROM r5propertyvalues
+    WHERE     prv_code = @prvCode
+          AND PRV_PROPERTY = @prvproperty
+          AND PRV_RENTITY = @prvRentity
+      and prv_class=@prvClass;
+
+   IF @ncount = 0
+      BEGIN
+         INSERT INTO R5PROPERTYVALUES (PRV_PROPERTY,
+                                       PRV_RENTITY,
+                                       PRV_CODE,
+                                       PRV_VALUE,
+                                       PRV_CLASS,
+                                       PRV_CLASS_ORG)
+         VALUES (@prvProperty,
+                 @prvRentity,
+                 @prvCode,
+                 @prvValue,
+                 @prvClass,
+                 '*');
+      END
+   ELSE
+      BEGIN
+         UPDATE R5PROPERTYVALUES
+            SET PRV_VALUE = @prvValue
+          WHERE     prv_code = @prvCode
+                AND PRV_PROPERTY = @prvproperty
+                AND PRV_RENTITY = @prvRentity;
+      END;
+END
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_UPD_CHECKLISTS]
+    @serialNo NVARCHAR(30),
+    @receiptNo NVARCHAR(30),
+    @actNum NVARCHAR(30),
+    @assetCode NVARCHAR(30),
+    @propertyType NVARCHAR(30),
+    @checkValue NVARCHAR(256),
+    @remark NVARCHAR(30),
+    @checked NVARCHAR(30),
+    @checkedYes      NVARCHAR (30),
+    @checkedNo NVARCHAR(30),
+    @checkResult NVARCHAR(30),
+    @workNo NVARCHAR(30),
+    @language NVARCHAR(30)
+WITH EXEC AS CALLER
+AS
+DECLARE @flag NVARCHAR(1) = 'S',
+        @message NVARCHAR(2000),
+        @ncount INT,
+        @chkitem NVARCHAR(30), --检查项ID
+        @chkdesc NVARCHAR(80), --检查项对应的描述
+        @chkObj NVARCHAR(30),  --检查项对应的大阿里编号
+        @ackcode NVARCHAR(30);
+
+BEGIN
+    BEGIN TRY
+        SET @checked = '+'; --Added by Joey Wang on 28 Nov 2018
+        SELECT @ncount = COUNT(1)
+        FROM R5ACTCHECKLISTS
+        WHERE ACK_SEQUENCE = @serialNo
+              AND ACK_EVENT = @receiptNo
+              AND ACK_OBJECT = @assetCode
+              AND ACK_ACT = @actNum;
+
+        IF @ncount = 0
+        BEGIN
+            SELECT 'E' AS flag,
+                   N'检查项不存在' AS message;
+
+            RETURN;
+        END;
+
+        ---  when the pointtype equals 'GENNERAL',update all checklists without check objcode.
+        SELECT @ncount = COUNT(1)
+        FROM R5ACTCHECKLISTS
+        WHERE ACK_SEQUENCE = @serialNo
+              AND ACK_EVENT = @receiptNo
+              AND ACK_OBJECT = @assetCode
+              AND ACK_ACT = @actNum
+              AND ACK_POINTTYPE = 'GENERAL';
+
+        IF @ncount = 0
+        BEGIN
+
+            UPDATE R5ACTCHECKLISTS
+            SET ACK_NOTES = @checkValue,
+                                    --ACK_VALUE = @CHECKVALUE,
+                                    --ACK_NOTES = @REMARK,
+                                    --Below added by Joey Wang on 28 Nov 2018
+                ACK_UPDATED = GETDATE(),
+                ACK_UPDATEDBY = ' R5',
+                ACK_COMPLETED = CASE WHEN ACK_REQUIREDTOCLOSE = 'YES' THEN @checked ELSE ACK_COMPLETED
+                                END --Added by Joey Wang on 28 Nov 2018
+            -- ACK_YES = @CHECKEDYES,
+            -- ACK_NO = @CHECKEDNO,
+            --ACK_FINDING = @CHECKRESULT
+            WHERE ACK_SEQUENCE = @serialNo
+                  AND ACK_EVENT = @receiptNo
+                  AND ACK_OBJECT = @assetCode
+                  AND ACK_ACT = @actNum;
+        END;
+        ELSE
+        BEGIN
+            --            ---增加唯一性校验
+            --            ---增加SN校验,有线MAC,无线MAC,IMES 唯一性校验
+            --                        SELECT @NCOUNT = COUNT (1)
+            --                          FROM R5ACTCHECKLISTS
+            --                         WHERE     ACK_SEQUENCE = @SERIALNO
+            --                               AND ACK_EVENT = @RECEIPTNO
+            --                               AND ACK_ACT = @ACTNUM
+            --                               AND ACK_TASKCHECKLISTCODE IN
+            --                                      (SELECT CPM_CHKITEM
+            --                                         FROM U5CHKPROPMAPPING
+            --                                        WHERE    CPM_PROPERTY IN
+            --                                                    ('L-MAC', 'W-MAC', 'IMEI')
+            --                                              OR CPM_OBJFIELD IN ('OBJ_SERIALNO'));
+            --
+            IF @ncount = 1
+               AND @checkValue <> N''
+            BEGIN
+                SELECT @ackcode = ACK_CODE,
+                       @chkObj = ACK_OBJECT,
+                       @chkitem = ISNULL(CPM_PROPERTY, CPM_OBJFIELD),
+                       @chkdesc = CPM_CHKDESC
+                FROM R5ACTCHECKLISTS,
+                     U5CHKPROPMAPPING
+                WHERE ACK_SEQUENCE = @serialNo
+                      AND ACK_EVENT = @receiptNo
+                      AND ACK_ACT = @actNum
+                      AND ACK_TASKCHECKLISTCODE = CPM_CHKITEM
+                      AND (   CPM_PROPERTY IN ( 'L-MAC', 'W-MAC', 'IMEI' )
+                              OR CPM_OBJFIELD IN ( 'OBJ_SERIALNO' ));
+
+                SELECT @ncount = COUNT(1)
+                FROM R5ACTCHECKLISTS
+                WHERE ACK_CODE <> @ackcode
+                      AND ACK_EVENT NOT IN (   SELECT EVT_CODE
+                                               FROM R5EVENTS
+                                               WHERE EVT_JOBTYPE IN ( '10YS', '100YS' )
+                                                     AND EVT_STATUS IN ( 'YS10', 'YS20', 'YS50' )
+                                                     AND EVT_PARENT IS NULL )
+                      AND ACK_NOTES = @checkValue
+                      AND ACK_TASKCHECKLISTCODE IN (   SELECT CPM_CHKITEM
+                                                       FROM U5CHKPROPMAPPING
+                                                       WHERE ISNULL(CPM_PROPERTY, CPM_OBJFIELD) = @chkitem );
+
+                IF @ncount > 0
+                BEGIN
+                    SELECT TOP 1
+                           'E' AS flag,
+                           (CASE @language WHEN 'ZH' THEN
+                                               N'资产信息重复提醒：
+                                 以下资产信息已存在，请不要重复录入！
+                                 实物资产编号为：' + @chkObj + N'的验收项:' + @chkdesc + N': "' + @checkValue + N'" 信息与实物资产编号为:'
+                                               + ACK_OBJECT + N'的重复！' ELSE
+                                                                          'Duplicated asset information reminder:
+Following assets information have already existed, please do not reuse!' + @chkdesc + ' ' + @checkValue
+                                                                          + ' of physical asset number ' + @chkObj
+                                                                          + ' is duplicated with ' + @chkdesc
+                                                                          + ' of the physical asset number ' + ACK_OBJECT
+                            END) AS message
+                    FROM R5ACTCHECKLISTS
+                    WHERE ACK_CODE <> @ackcode
+                          AND ACK_NOTES = @checkValue
+                          AND ACK_TASKCHECKLISTCODE IN (   SELECT CPM_CHKITEM
+                                                           FROM U5CHKPROPMAPPING
+                                                           WHERE ISNULL(CPM_PROPERTY, CPM_OBJFIELD) = @chkitem );
+
+                    RETURN;
+                END;
+            END;
+
+            UPDATE R5ACTCHECKLISTS
+            SET ACK_NOTES = @checkValue,
+                                    --ACK_VALUE = @CHECKVALUE,
+                                    --ACK_NOTES = @REMARK,
+                                    --Below added by Joey Wang on 28 Nov 2018
+                ACK_UPDATED = GETDATE(),
+                ACK_UPDATEDBY = ' R5',
+                ACK_COMPLETED = CASE WHEN ACK_REQUIREDTOCLOSE = 'YES' THEN @checked ELSE ACK_COMPLETED
+                                END --Added by Joey Wang on 28 Nov 2018
+            -- ACK_YES = @CHECKEDYES,
+            -- ACK_NO = @CHECKEDNO,
+            --ACK_FINDING = @CHECKRESULT
+            WHERE ACK_SEQUENCE = @serialNo
+                  AND ACK_EVENT = @receiptNo
+                  AND ACK_OBJECT = @assetCode
+                  AND ACK_ACT = @actNum;
+        END;
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+    SELECT @flag AS flag,
+           @message AS message;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_UPDATE_RECEIPT]
+   @corp                       NVARCHAR (15),
+   @supplierCode               NVARCHAR (30),
+   @supplierName               NVARCHAR (80),
+   @ouCode                     NVARCHAR (80),
+   @poNumber                   NVARCHAR (80),
+   @acceptNumber               NVARCHAR (80),
+   @acceptanceLineId           NVARCHAR (80),
+   @acceptanceLineOfHEMA       NVARCHAR (80),
+   @unitPriceTaxIncluded       NVARCHAR (30),
+   @taxRate                    NVARCHAR (10),
+   @amountTaxIncluded          NVARCHAR (30),
+   @orderType                  NVARCHAR (30),
+   @workNo                     NVARCHAR (30),
+   @flag                       NVARCHAR (1) OUTPUT,
+   @message                    NVARCHAR (2000) OUTPUT,
+   @receiptNo                  NVARCHAR (30) OUTPUT
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+DECLARE @nchk   INT;
+
+BEGIN
+   SET @flag = 'S'
+
+   BEGIN TRY
+     
+    SELECT
+    @ncount = count(1)
+    FROM
+    r5events
+    WHERE
+    evt_code = @receiptNo 
+    OR
+    (evt_udfchar01 = @acceptanceLineId
+    AND
+    evt_udfchar11 = @acceptanceLineOfHEMA)
+    
+  
+    
+    if @ncount = 0 
+      SELECT @flag = 'E',
+             @message = N'验收单不存在';
+    ELSE
+      BEGIN
+      
+        UPDATE 
+          R5EVENTS
+        SET
+           EVT_ORIGIN = ISNULL(@workNo,EVT_ORIGIN)
+          ,EVT_UDFCHAR06 = ISNULL(@supplierCode,EVT_UDFCHAR06)
+          ,EVT_UDFCHAR08 = ISNULL(@ouCode,EVT_UDFCHAR08)
+          ,EVT_UDFCHAR10 = ISNULL(@poNumber,EVT_UDFCHAR10)
+          ,EVT_UDFCHAR11 = ISNULL(@acceptNumber,EVT_UDFCHAR11)
+          ,EVT_UDFCHAR02 = ISNULL(@acceptanceLineId,EVT_UDFCHAR02)
+          ,EVT_UDFCHAR22 = ISNULL(@acceptanceLineOfHEMA,EVT_UDFCHAR22)
+          ,EVT_UDFCHAR13 = ISNULL(@unitPriceTaxIncluded,EVT_UDFCHAR13)
+          ,EVT_UDFCHAR14 = ISNULL(@taxRate,EVT_UDFCHAR14)
+          ,EVT_UDFCHAR17 = ISNULL(@amountTaxIncluded,EVT_UDFCHAR17)
+          ,EVT_UDFCHAR04 = ISNULL(@orderType,EVT_UDFCHAR04)
+        WHERE 
+          (EVT_CODE = @receiptNo
+          OR
+          (evt_udfchar01 = @acceptanceLineId
+          AND
+          evt_udfchar11 = @acceptanceLineOfHEMA))
+        AND
+          EVT_JOBTYPE = '10YS'
+      END
+     
+   END TRY
+   BEGIN CATCH
+      SELECT @flag = 'E',
+             @message = ERROR_MESSAGE ();
+   END CATCH
+
+   ---便于Mybatis获取结果。
+   SELECT @flag AS flag, @message AS message, @receiptNo receiptNo;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_UPDATE_RECEIPT_DETAIL_MANUAL]
+  @receiptNo  NVARCHAR(30) OUTPUT
+ ,@locId      NVARCHAR(40)
+ ,@workNo     NVARCHAR(30)
+ ,@ifStore    NVARCHAR(40)
+ ,@usageNote  NVARCHAR(40)
+ ,@newType    NVARCHAR(40)
+ ,@ownerShip  NVARCHAR(40)
+ ,@poNumber   NVARCHAR(80)
+ ,@locDetail  NVARCHAR(40)
+ ,@storeId    NVARCHAR(80)
+ ,@model      NVARCHAR(30)
+ ,@serialNo   NVARCHAR(30)
+ ,@corp       NVARCHAR(30) OUTPUT
+ ,@brand      NVARCHAR(30)
+ ,@supplierName NVARCHAR(80)
+ ,@respNo     NVARCHAR(80)
+ ,@userNo     NVARCHAR(80)
+ ,@ouCode     NVARCHAR(80)
+ ,@currencyCode NVARCHAR(30)
+ ,@taxInclusive NVARCHAR(30)
+ ,@unitPrice  NUMERIC(18,2)
+ ,@acceptDate NVARCHAR(50)
+ ,@unitPriceTaxIncluded  NVARCHAR(30)
+ ,@taxRate  NVARCHAR(30)
+ ,@amountTaxIncluded  NVARCHAR(30)
+ ,@standardCoin  NVARCHAR(30)
+ ,@withTaxPrice  NVARCHAR(30)
+ ,@noTaxPrice  NVARCHAR(30)
+ ,@rate  NVARCHAR(30)
+ ,@calDate  NVARCHAR(30)
+  WITH
+  EXEC AS CALLER
+AS
+DECLARE 
+  @ncount int
+ ,@flag NVARCHAR(1) = N'S'
+ ,@message NVARCHAR(2000)
+ ,@chkStore NVARCHAR(2)
+BEGIN
+  BEGIN TRY
+--   SET @ncount = 0;
+   SELECT @ncount = count(1)
+     FROM R5EVENTS
+    where EVT_CODE = @receiptNo
+    
+--    IF @ifStore = N'Y'
+--      BEGIN
+--        set @chkStore = '+';
+--      END
+--    ELSE IF @ifStore = N'N'
+--      BEGIN
+--        set @chkStore = '-';
+--      END
+    
+  IF @ncount = 0
+    BEGIN
+       SELECT
+        @flag    = 'E'
+       ,@message = N'验收单不存在'
+    END
+  ELSE
+    BEGIN
+      UPDATE R5EVENTS SET
+         
+         EVT_OBJECT = @locId -- nvarchar(30)
+        ,EVT_OBJECT_ORG = '*'
+        ,EVT_ORIGIN = @workNo
+        ,EVT_UDFCHKBOX01 = @ifStore
+        ,EVT_UDFCHAR07 = @usageNote
+        ,EVT_UDFCHAR21 = @ownerShip
+        ,EVT_UDFCHAR10 = @poNumber
+        ,EVT_UDFCHAR11 = @locDetail
+        ,EVT_UDFCHAR15 = (SELECT top 1 PER_MRC FROM R5PERSONNEL WHERE PER_CODE = @workNo)
+        ,EVT_UDFCHAR16 = @storeId
+        ,EVT_UDFDATE02 = CONVERT(datetime, @acceptDate, 20)
+        ,EVT_UDFCHAR13 = @unitPriceTaxIncluded
+        ,EVT_UDFCHAR14 = @taxRate
+        ,EVT_UDFCHAR17 = @amountTaxIncluded
+      WHERE EVT_CODE = @receiptNo
+      
+      UPDATE R5OBJECTS SET 
+         OBJ_MANUFACTMODEL = @model
+        ,OBJ_SERIALNO = @serialNo
+        ,OBJ_ORG = @corp
+        ,OBJ_STORE = @storeId
+        ,OBJ_UDFCHAR03 = @ouCode
+        ,OBJ_UDFCHAR04 = @newType
+        ,OBJ_UDFCHAR05 = @brand
+        ,OBJ_UDFCHAR06 = @supplierName
+        ,OBJ_UDFCHAR07 = @usageNote
+        ,OBJ_UDFCHAR10 = @poNumber
+        ,OBJ_UDFCHAR12 = @respNo
+        ,obj_udfchar22 = dbo.R5O7_O7GET_DESC ('ZH','PERS',
+                                                   @respNo,
+                                                   '',
+                                                   '')
+        ,OBJ_UDFCHAR13 = @userNo
+        ,OBJ_UDFCHAR14 = (SELECT top 1 PER_MRC FROM R5PERSONNEL WHERE PER_CODE = @workNo)
+        ,OBJ_UDFCHAR15 = @locId
+        ,OBJ_UDFCHAR30 = @currencyCode
+        ,OBJ_UDFCHKBOX02 = @taxInclusive
+        ,OBJ_VALUE = @unitPrice
+        ,OBJ_BIN = '*'
+        ,OBJ_COMMISS = CONVERT(datetime, @acceptDate, 20)
+        ,OBJ_UDFCHAR08 = @ownerShip
+        ,OBJ_UDFCHAR27 = @locDetail
+        ,OBJ_UDFCHAR35 = @standardCoin
+        ,OBJ_UDFCHAR36 = @withTaxPrice
+        ,OBJ_UDFCHAR37 = @noTaxPrice
+        ,OBJ_UDFCHAR38 = @rate
+        ,OBJ_UDFCHAR39 = @calDate
+      WHERE OBJ_CODE IN (SELECT EVT_OBJECT FROM R5EVENTS WHERE EVT_PARENT = @receiptNo)
+        
+    END
+    
+   END TRY
+   BEGIN CATCH
+      SELECT @flag = 'E',
+             @message = ERROR_MESSAGE ();
+   END CATCH
+   
+                  ---以便Mybatis获取返回结果。
+  SELECT @flag AS flag
+ ,@message AS message
+ ,@receiptNo receiptNo
+ ,@corp corp;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_UPDATE_RECEIPTSTATUS]
+    @evtCode BIGINT,
+    @language NVARCHAR(10),
+    @evtStatus NVARCHAR(10),
+    @flag NVARCHAR(1) OUTPUT,
+    @message NVARCHAR(2000) OUTPUT
+WITH EXEC AS CALLER
+AS
+DECLARE @ncount INT;
+DECLARE @checkMessage NVARCHAR(500);
+
+BEGIN
+    SET @flag = N'S';
+
+    BEGIN TRY
+        /*********增加唯一性校验 2018-09-11**Jason**Zhao******/
+        SELECT @ncount = COUNT(1)
+        FROM R5EVENTS
+        WHERE EVT_CODE = @evtCode
+              AND EVT_JOBTYPE IN ( '10YS', '100YS' )
+              AND @evtStatus NOT IN ( 'YS10', 'YS20', 'YS50' );
+
+        IF @ncount > 0
+        BEGIN
+            DECLARE c_check CURSOR LOCAL FOR WITH allCheck
+                                             AS (
+                                                SELECT *
+                                                FROM R5ACTCHECKLISTS,
+                                                     U5CHKPROPMAPPING
+                                                WHERE ACK_EVENT NOT IN (
+                                                                           SELECT EVT_CODE
+                                                                           FROM R5EVENTS
+                                                                           WHERE EVT_JOBTYPE IN ( '10YS', '100YS' )
+                                                                                 AND EVT_STATUS IN ( 'YS10', 'YS20',
+                                                                                                     'YS50'
+                                                                                                   )
+                                                                                 AND EVT_PARENT IS NULL
+                                                                       )
+                                                      AND ACK_TASKCHECKLISTCODE = CPM_CHKITEM
+                                                      AND
+                                                      (
+                                                          CPM_PROPERTY IN ( 'L-MAC', 'W-MAC', 'IMEI' )
+                                                          OR CPM_OBJFIELD IN ( 'OBJ_SERIALNO' )
+                                                      )
+                                                      AND ACK_NOTES IS NOT NULL
+                                                      AND ACK_NOTES <> ''),
+                                                  thisCheck
+                                             AS (SELECT *
+                                                 FROM R5ACTCHECKLISTS,
+                                                      U5CHKPROPMAPPING
+                                                 WHERE ACK_EVENT = @evtCode
+                                                       AND ACK_TASKCHECKLISTCODE = CPM_CHKITEM
+                                                       AND
+                                                       (
+                                                           CPM_PROPERTY IN ( 'L-MAC', 'W-MAC', 'IMEI' )
+                                                           OR CPM_OBJFIELD IN ( 'OBJ_SERIALNO' )
+                                                       )
+                                                       AND ACK_NOTES IS NOT NULL
+                                                       AND ACK_NOTES <> '')
+            SELECT (CASE @language
+                        WHEN 'ZH' THEN
+                            N' 资产信息重复提醒：
+                  以下资产信息已存在，请不要重复录入！
+                  实物资产编号为：' + thisCheck.ACK_OBJECT + N',  该资产的"' + thisCheck.ACK_DESC + N': ' + allCheck.ACK_NOTES
+                            + N' ":信息与实物资产编号为：' + allCheck.ACK_OBJECT + N' 的重复！'
+                        ELSE
+                            'Duplicated asset information reminder:
+Following assets information have already existed, please do not reuse!' + thisCheck.ACK_DESC + ' '
+                            + allCheck.ACK_NOTES + ' of physical asset number ' + thisCheck.ACK_OBJECT
+                            + ' is duplicated with ' + thisCheck.ACK_DESC + ' of the physical asset number '
+                            + allCheck.ACK_OBJECT
+                    END
+                   )
+            FROM allCheck
+                INNER JOIN thisCheck
+                    ON allCheck.ACK_EVENT <> thisCheck.ACK_EVENT
+                       AND allCheck.ACK_NOTES = thisCheck.ACK_NOTES
+                       AND allCheck.ACK_TASKCHECKLISTCODE = thisCheck.ACK_TASKCHECKLISTCODE;
+
+            OPEN c_check;
+
+            FETCH NEXT FROM c_check
+            INTO @checkMessage;
+            SELECT @message = '';
+
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                SELECT @message = @message + @checkMessage;
+                FETCH NEXT FROM c_check
+                INTO @checkMessage;
+            END;
+
+            IF @message <> ''
+            BEGIN
+                SELECT 'E' AS flag,
+                       @message AS message;
+
+                RETURN;
+            END;
+        END;
+
+        UPDATE R5EVENTS
+        SET EVT_STATUS = @evtStatus,
+        evt_updatecount = evt_updatecount + 1, -- added by Joey Wang on 20 Nov 2018
+      evt_updated = GETDATE(),-- added by Joey Wang on 20 Nov 2018
+            EVT_RSTATUS = [dbo].[O7CCODE](@evtStatus, 'EVST')
+        WHERE EVT_CODE = @evtCode;
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+    SELECT @flag AS flag,
+           @message AS message;
+END;
+
+GO
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+ALTER PROCEDURE [dbo].[U5RAE]
+   @sErmsource NVARCHAR (12), @sErmErrorMsg NVARCHAR (200)
+AS
+/**
+ Create by Jason.Zhao @2018-03-29
+ remark:
+ @sErmsource--the ERT_CODE in table R5ERRTEXTS
+ @sErmErrorMsg --the alert Message Defined
+
+
+*/
+SET  NOCOUNT ON;
+DECLARE @sErrcode   NVARCHAR (12);                 --r5errsource.ers_code%TYPE
+DECLARE @sOracode   NVARCHAR (300);
+DECLARE @nCount   INT;
+DECLARE @sPaddedCode   NVARCHAR (12);
+
+SET @sOracode = '';
+
+IF @sErmsource IS NULL
+   SET @sErmsource = 'NA';
+
+IF @sErmsource IS NOT NULL
+   BEGIN
+      SELECT @nCount = COUNT (*)
+      FROM dbo.R5ERRTEXTS m
+      WHERE m.ERT_CODE = @sErmsource;
+
+      IF @nCount > 0
+         SELECT @sOracode =
+                     @sErmsource
+                   + [dbo].[BAIMERROR_GETERRORMESSAGE] (@sErmsource);
+   END;
+
+IF (@sOracode <> '')
+   SET @sOracode = 'FIXEDBEGIN' + @sOracode + @sErmErrorMsg + N'！FIXEDEND';
+ELSE
+   SET @sOracode = N'FIXEDBEGIN 提示!' + @sErmErrorMsg + N'！FIXEDEND';
+
+SET @sOracode =
+       REPLACE (REPLACE (REPLACE (@sOracode, ':', N'：'), '-', ''),
+                '!',
+                N'！');
+SET @sOracode =
+       REPLACE (REPLACE (REPLACE (@sOracode, '.', N'。'), '-', ''),
+                '!',
+                N'！');
+RAISERROR (@sOracode, 16, 1);
+GO

@@ -1,0 +1,103 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+ALTER TRIGGER [dbo].[U5PREINS_MOD]
+ON [dbo].[U5MODELS]
+/***************************************
+*Version: 1.1
+*Author: Joey Wang
+*Date Created: 27 Feb 2019
+*Remark: enforce the description of a newly created model  to be
+*        updated as the description of existing model with the same code
+*        as the newly created one
+*Updated by Joey Wang on 4 Mar 2019 to be version 1.1
+*V1.1 Remark: Fix the problem of creating new model with non-existing model Code
+****************************************************/
+INSTEAD OF INSERT
+AS
+DECLARE @ModelId NVARCHAR(30);
+DECLARE @ModelDesc NVARCHAR(80);
+DECLARE @ModelDescEn NVARCHAR(80);
+BEGIN
+
+    SELECT @ModelId = i.MOD_CODE,
+           @ModelDesc = i.DESCRIPTION,
+           @ModelDescEn = i.MOD_DESC_EN
+    FROM INSERTED i;
+    --EXEC dbo.U5RAE '', @ModelId;
+    IF EXISTS (   SELECT 1
+                  FROM U5MODELS
+                  WHERE MOD_CODE = @ModelId
+                        AND ISNULL(MOD_NOTUSED,
+                                   '') <> '')
+    BEGIN
+        BEGIN TRY
+            SET @ModelDesc = (   SELECT TOP 1
+                                        "DESCRIPTION"
+                                 FROM U5MODELS
+                                 WHERE MOD_CODE = @ModelId
+                                       AND ISNULL(MOD_NOTUSED,
+                                                  '') <> '');
+            SET @ModelDescEn = (   SELECT TOP 1
+                                          MOD_DESC_EN
+                                   FROM U5MODELS
+                                   WHERE MOD_CODE = @ModelId
+                                         AND ISNULL(MOD_NOTUSED,
+                                                    '') <> '');
+
+        END TRY
+        BEGIN CATCH
+
+            DECLARE @errMsg NVARCHAR(100);
+            SELECT @errMsg = SUBSTRING(ERROR_MESSAGE(),
+                                       1,
+                                       80);
+            SELECT @errMsg = @errMsg + ' ' + 'U5PREINS_MOD';
+            EXEC dbo.U5RAE '', @errMsg;
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END CATCH;
+    END;
+    --  EXEC dbo.U5RAE '', @ModelId;
+    INSERT INTO dbo.U5MODELS (DESCRIPTION,
+                              MOD_CODE,
+                              MOD_NOTUSED,
+                              MOD_BRAND,
+                              MOD_BRANDDESC,
+                              MOD_PART,
+                              MOD_PARDESC_ZH,
+                              MOD_PARDESC_EN,
+                              MOD_NAMEID,
+                              MOD_NAME,
+                              MOD_UDFCHAR01,
+                              CREATEDBY,
+                              CREATED,
+                              --     UPDATEDBY,
+                              --     UPDATED,
+                              --      UPDATECOUNT,
+                              MOD_NAME_EN,
+                              MOD_DESC_EN)
+    SELECT @ModelDesc,
+           MOD_CODE,
+           MOD_NOTUSED,
+           MOD_BRAND,
+           MOD_BRANDDESC,
+           MOD_PART,
+           MOD_PARDESC_ZH,
+           MOD_PARDESC_EN,
+           MOD_NAMEID,
+           MOD_NAME,
+           MOD_UDFCHAR01,
+           CREATEDBY,
+           CREATED,
+           --    UPDATEDBY,
+           --    UPDATED,
+           --   UPDATECOUNT,
+           MOD_NAME_EN,
+           @ModelDescEn
+    FROM INSERTED;
+END;
+GO

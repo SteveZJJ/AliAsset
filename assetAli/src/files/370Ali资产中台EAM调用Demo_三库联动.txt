@@ -1,0 +1,129 @@
+————————————————————————————————————————————
+1.2.1—GetListOfReceipts获取待处理验收单
+GET:	http://100.69.200.73:9090/alieam/api/getListOfReceipts?workNo=BEIYU&corp=ALI&language=ZH&accessKey=1
+	
+	{"flag":"S","message":null,"data":[{"receiptNo":"10041","receiptDesc":"TEST"}]}
+————————————————————————————————————————————
+1.2.2\1.4.1-GetReceiptDetails 获取详细信息
+GET:	http://100.69.200.73:9090/alieam/api/getReceiptDetails?receiptNo=10041&corp=ALI&language=ZH&accessKey=1
+{"flag":"S","message":null,"data":{"orgCode":"ALI","receiptNo":"10041","department":"*","buyer":null,"acceptNumber":null,"workNo":"BEIYU","storeCode":null,"partCode":null,"item":[{"assetCode":"100414","categoryCode":"@EVTUDF01","receiptNo":"10046"},{"assetCode":"100410","categoryCode":"@EVTUDF01","receiptNo":"10042"},{"assetCode":"100411","categoryCode":"@EVTUDF01","receiptNo":"10043"},{"assetCode":"100412","categoryCode":"@EVTUDF01","receiptNo":"10044"},{"assetCode":"100413","categoryCode":"@EVTUDF01","receiptNo":"10045"}],"ou":null,"po":null,"corp":"阿里办公","DepNo":"DEFAULT / ALL DEPARTMENTS","supplierName":null,"ouCode":null,"poNumber":null,"acceptanceLineOfHEMA":"盒马行ID","supplierCode": "供应商代码","acceptanceLineId": "AMP行ID/盒马行行ID"}
+}
+————————————————————————————————————————————
+1.2.3—GetPartsLOV  EAM物资编码选择值列表获取
+GET:	http://100.69.200.73:9090/alieam/api/getPartsLOV?categoryCode=采购类目Code&usageCode=用途CODE&corp=ALI&language=ZH&accessKey=1
+	{"flag":"S","message":null,"data":[{"partCode":"C0102","partDesc":"台式电脑"}]}
+————————————————————————————————————————————
+1.24-GetBrandsLOV 资产类目及品牌值列表获取
+GET:	http://100.69.200.73:9090/alieam/api/getBrandsLOV?partCode=C0101&corp=ALI&search=xx&language=ZH
+	{"flag":"S","message":null,"data”:{"asset":null,"brand":["BRAND","Brand2"],"name":"品牌"}}
+————————————————————————————————————————————
+1.2.5-GetModelsLOV与品牌联动的型号值列表获取
+   GET:   http://100.69.200.73:9090/alieam/api/getModelsLOV?brand=BRAND&corp=ALI&search=xx&language=ZH
+
+	{"flag":"S","message":null,"data":{"assetCatalogue":["MODEL"],"name":"型号"}}
+————————————————————————————————————————————
+1.3.1  getDepartmentLOV :部门值列表获取
+   GET:   http://100.69.200.73:9090/alieam/api/getDepartmentLOV?language=ZH&search=xx
+
+	{"flag":"S","message":null,"data":[{"depCode":"*","depDesc":"DEFAULT / ALL DEPARTMENTS"},{"depCode":"A01","depDesc":"集团"},{"depCode":"A0101","depDesc":"盒马"},{"depCode":"A010101","depDesc":"盒马上海运营"},{"depCode":"A01010101","depDesc":"盒马上海长宁店"},{"depCode":"A0201","depDesc":"蚂蚁金服"},{"depCode":"A020101","depDesc":"人力资源部（大陆）"},{"depCode":"A020102","depDesc":"人力资源部（欧洲）"}]}
+————————————————————————————————————————————
+1.3.2-GetStoreLOV：仓库值列表获取
+     http://100.69.200.73:9090/alieam/api/getStoreLOV?corp=ALI&language=EN&search=xx
+
+	{"flag":"S","message":null,"data":[{"storeCode":"S01","storeName":null},{"storeCode":"S02","storeName":null},{"storeCode":"1111","storeName":null}]}
+————————————————————————————————————————————
+1.2.6—GetChecklists：获取验收项目列表(可用性及属性信息)如果获取通用，则assetCode=GENERAL
+get:       http://100.69.200.73:9090/alieam/api/getChecklists?assetCode=assetCode&receiptNo=receiptNo&corp=ALI&language=ZH
+
+{"flag":"S","message":null,"data":[{"serialNo":"serialNo1","description":"description1","propertyType":"属性列1","isNeed”:”YES”,”checkType":"01","checkPointType":""},{"serialNo":"serialNo2","description":"description2","propertyType":"属性列2","isNeed”:”NO”,”checkType":"05","checkPointType":""},{"serialNo":"serialNo3","description":"description3","propertyType":"属性列3","isNeed”:”YES”,”checkType":"06","checkPointType":"GENERAL"}]}
+———————————————————————————————————————————
+————————————————————————————————————————————
+1.1.1	CreateAssetReceipt：创建验收单基础信息 – I011
+Post: http://100.69.200.73:9090/alieam/api/createAssetReceipt
+Body:{ "corp":"ALI", "supplierName":"@supplierName","ouCode": "@ouCode","poNumber":"@poNumber", "acceptNumber":"@acceptNumber", "workNo":"BEIYU","language":"ZH","acceptanceLineId": "acceptanceLineId",
+"acceptanceLineOfHEMA":"盒马行ID","supplierCode": "供应商代码"}
+response:{    "flag": "S", "message": null,   "data": {     "receiptNo": "10073"   }  }
+
+-----
+@Data
+public class Receipt_CreateHeader {
+	private String corp;//组织
+	private String supplierName;//供应商描述
+	private String ouCode;//OU
+	private String poNumber;//PO号
+	private String acceptNumber;//发运单号
+	private String workNo;//验收人
+	private String language;//语言
+	private String acceptanceLineId;//AMP 发运行ID,盒马 发运行行ID
+	private String supplierCode;//供应商代码
+	private String acceptanceLineOfHEMA;//盒马 发运行ID
+    }
+————————————————————————————————————————————
+1.1.2	CreateRecvLine ：创建验收单资产行 – I012
+Post:http://100.69.200.73:9090/alieam/api/createRecvLine
+Body
+{
+	"workNo": "BEIYU1",
+	"receiptNo": "10071",
+	"categoryCode": "categoryCode",
+	"acceptanceLineId": "acceptanceLineId",
+	"acceptDate": "2017-07-01",
+	"corp": "ALI",
+	"ouCode": "ouCode",
+	"orientation": "@orientation",
+	"poNumber": "@poNumber",
+	"acceptNumber": "@acceptNumber",
+	"originalConfig": "@originalConfig",
+	"acceptDesc": "@acceptDesc",
+	"currencyCode": "@currencyCode",
+	"unitPrice": 1000.01,
+	"faCategoryCode": "@faCategoryCode",
+	"taxInclusive": "+",
+	"quantity": 2，
+    "language":"ZH"
+}
+response
+失败demo:{"flag":"E","message":"人员,公司信息未在资产中台维护！","data":{}}
+成功Demo:{"flag":"S","message":null,"data":{"receiptNo":"10071","acceptanceLineId":"acceptanceLineId"}}
+————————————————————————————————————————————
+1.1.3 UpdatePartOfReceipts:更新验收单的仓库和物料号 – I013
+get:http://100.69.200.73:9090/alieam/api/updatePartOfReceipts?receiptNo=10071&storeCode=storeCode&partCode=30101
+response:  {"flag":"S","message":null}
+————————————————————————————————————————————
+1.4.2	UpdateReceiptStatus：验收单状态更新—I040
+GET:http://100.69.200.73:8080/alieam/api/updateReceiptStatus?receiptNo=10071&approvalResult=C
+response: 
+    {"flag":"S","message":null}
+    {"flag":"E","message":"~11426       - S=O7PREEVT T=PROC N=2 C=0"}
+————————————————————————————————————————————
+1.3.3	NewAssetDetails：新增资产信息录入—I033
+POST:http://100.69.200.73:9090/alieam/api/newAssetDetails
+Body：{"assetCode":"100721","locationCode":"8657101","model":"model","partCode":"C0101","serialNo":"serialNo","storeCode":"S01","corp":"ALI","brand":"brand","supplierName":null,"usageNote":"usageNote","userNo":"userNo","depNo":"depNo","configChange":"configChange","locationNote":"locationNote","language":"ZH"}
+RESPONSE: {"flag":"S","message":null,"data":{"assetCode":"100721","receiptNo":"10072"}}
+————————————————————————————————————————————
+1.3.4	NewReceiptDetails：资产验收信息录入及更新—I034
+POST:http://100.69.200.73:9090/alieam/api/newReceiptDetails
+POST2:批量提交接口  http://100.69.200.73:9090/alieam/api/newReceiptDetails_L
+BODY:{"serialNo":"123","receiptNo":"验收单号","actNum":"11","assetCode":"assetCode","propertyType":"propertyType","propertyTypeCode":"propertyTypeCode","checkValue":"checkValue","remark":"remark","checked":"checked","checkedYes":"checkedYes","checkedNo":"checkedNo","checkResult":"checkResult","workNo":"workNo","language":"language"}
+RESPONSE:{"flag":"E","message":"检查项不存在"}
+————————————————————————————————————————————
+2018-Jul-28
+根据发运行ID获取资产中台验收单号。
+   2018-09-14 增加 acceptanceLineOfHEMA ,corp
+Get: http://100.69.200.73:9090/alieam/api/getReceiptNoByLineId?acceptanceLineId=xxxx
+失败demo:{"flag":"E","message":"验收单信息不存在！","data":{}}
+成功demo: {"flag":"S","message":null,"data":{"receiptNo":"10397","acceptanceLineId":"10134464","status":"YS40"}}
+
+————————————————————————————————————————————
+2018-Aug-04
+根据发运行ID和PO号获取资产信息,
+  2018-09-14 增加 acceptanceLineOfHEMA ,corp
+http://100.69.200.73:9090/alieam/api/getAssetDetails?acceptanceLineId=10034361&poNumber=PO35053432&corp=ALIO&language=ZH
+
+{"flag":"S","message":null,"data":{"assetDetails":[{"assetCode":"TDN000000000042","assetName":"笔记本电脑-C0101","acceptDate":null,"locationCode":null,"model":null,"serialNo":null,"assetStatus":"I00","corp":"ALIO","mrc":"*","costCode":null,"asset":null,"ouCode":"A05","orientation":"新增类型","brand":null,"poNumber":"PO35153720","userNo":null,"personNo":null,"depNo":null,"acceptDesc":"规格-海外笔记本805-1","currencyCode":"CNY","currencyMoney":null,"tax":null,"unitPrice":"2000.000000","faCategoryCode":"01.0102-01的描述.固定资产-电脑设备-笔记本电脑","taxInclusive":"是","quantity":"1","uom":null,
+                "storeDesc": "Frankfurt楼宇小仓"}],"receiptNo":"10323","checkList":[{"serialNo":"40","description":"CPU","propertyType":null,"isNeed":"NO","checkType":"01","checkPointType":"GENERAL","propertyTypeCode":null,"receiptNo":"10323","actNum":"10","assetCode":"TDN000000000042","checkValue":null,"remark":"cpu","checked":"-","checkedYes":null,"checkedNo":null,"checkResult":null,"workNo":null,"language":null},{"serialNo":"60","description":"硬盘","propertyType":null,"isNeed":"NO","checkType":"01","checkPointType":"GENERAL","propertyTypeCode":null,"receiptNo":"10323","actNum":"10","assetCode":"TDN000000000042","checkValue":null,"remark":"yingpan","checked":"-","checkedYes":null,"checkedNo":null,"checkResult":null,"workNo":null,"language":null},{"serialNo":"80","description":"有线网卡","propertyType":null,"isNeed":"NO","checkType":"01","checkPointType":"GENERAL","propertyTypeCode":null,"receiptNo":"10323","actNum":"10","assetCode":"TDN000000000042","checkValue":null,"remark":"you cp","checked":"-","checkedYes":null,"checkedNo":null,"checkResult":null,"workNo":null,"language":null},{"serialNo":"50","description":"内存","propertyType":null,"isNeed":"NO","checkType":"01","checkPointType":"GENERAL","propertyTypeCode":null,"receiptNo":"10323","actNum":"10","assetCode":"TDN000000000042","checkValue":null,"remark":"neic","checked":"-","checkedYes":null,"checkedNo":null,"checkResult":null,"workNo":null,"language":null},{"serialNo":"70","description":"显卡","propertyType":null,"isNeed":"NO","checkType":"01","checkPointType":"GENERAL","propertyTypeCode":null,"receiptNo":"10323","actNum":"10","assetCode":"TDN000000000042","checkValue":null,"remark":"xiank","checked":"-","checkedYes":null,"checkedNo":null,"checkResult":null,"workNo":null,"language":null},{"serialNo":"90","description":"无线网卡","propertyType":null,"isNeed":"NO","checkType":"01","checkPointType":"GENERAL","propertyTypeCode":null,"receiptNo":"10323","actNum":"10","assetCode":"TDN000000000042","checkValue":null,"remark":"wuk","checked":"-","checkedYes":null,"checkedNo":null,"checkResult":null,"workNo":null,"language":null}]}}
+————————————————————————————————————————————
+根据大阿里编号更新固定资产编码
+http://100.69.200.73:9090/alieam/api/updateFixedAssetInfo?assetCode=TDN000000000009&fixedAssetCode=fixedAssetCode
+{"flag":"S","message":null}
+

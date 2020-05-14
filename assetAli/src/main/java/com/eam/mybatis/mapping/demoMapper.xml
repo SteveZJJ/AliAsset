@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eam.mybatis.dao.DemoMapper">
+    <resultMap id="BaseResultMap" type="com.eam.mybatis.model.U5CodeValue">
+        <result column="ncode" property="code" jdbcType="VARCHAR"/>
+        <result column="nvalue" property="value" jdbcType="VARCHAR"/>
+    </resultMap>
+    <select id="getDemoList" resultMap="BaseResultMap">
+        select 'demoCode' as ncode, 'demoDesc' as nvalue from dual
+    </select>
+    <select id="getDemoUsers" resultMap="BaseResultMap"
+            parameterType="map">
+        select ncode,nvalue from (
+        select row_.*,rownum rownum_ from (
+        select usr_code as ncode, usr_desc as nvalue from r5users
+        where 1=1
+        <if test="sCode!=null and  sCode!=''">
+            and usr_code like CONCAT(CONCAT('%',#{sCode}),'%')
+        </if>
+        <if test="sDesc!=null and  sDesc!=''">
+            and usr_desc like CONCAT(CONCAT('%',#{sDesc}),'%')
+        </if>
+        order by usr_code
+        )row_ where rownum &lt;= #{limit}
+        ) where rownum_ &gt; #{start}
+    </select>
+    <select id="getDemoUsersCount" parameterType="map"
+            resultType="Integer">
+        select count(1) from r5users
+        where 1=1
+        <if test="sCode!=null and  sCode!=''">
+            and usr_code like CONCAT(CONCAT('%',#{sCode}),'%')
+        </if>
+        <if test="sDesc!=null and  sDesc!=''">
+            and usr_desc like CONCAT(CONCAT('%',#{sDesc}),'%')
+        </if>
+    </select>
+</mapper>

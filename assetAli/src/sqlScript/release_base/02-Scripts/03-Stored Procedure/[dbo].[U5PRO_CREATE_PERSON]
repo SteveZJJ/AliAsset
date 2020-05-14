@@ -1,0 +1,81 @@
+/****** Object: Procedure [dbo].[U5PRO_CREATE_PERSON]   Script Date: 2019/2/22 15:55:54 ******/
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+CREATE PROCEDURE [dbo].[U5PRO_CREATE_PERSON]
+@perCode nvarchar(15), @perDesc nvarchar(80), @perMrc nvarchar(50), @perNotUsed nvarchar(8)
+WITH EXEC AS CALLER
+/*****
+Create by Steve Zhang
+2018-Sep-07
+检查员工是否存在，不存在则创建
+******/
+AS
+  declare @ncount int
+  declare @ncount1 int
+  declare @flag nvarchar(2)
+  declare @message nvarchar(3000)
+begin
+
+    SELECT @ncount1 = COUNT(1) FROM R5MRCS WHERE MRC_CODE = @perMrc;
+   
+    IF @ncount1 = 0 
+      INSERT INTO R5MRCS (
+         MRC_CODE
+        ,MRC_DESC
+        ,MRC_CLASS
+        ,MRC_ORG
+        ,MRC_CLASS_ORG
+      
+      ) VALUES (
+         @perMrc -- MRC_CODE - nvarchar(15)
+        ,@perMrc -- MRC_DESC - nvarchar(80)
+        ,'*'
+        ,'*'
+        ,'*'
+      ) 
+   SELECT @ncount = count (1)
+   FROM R5PERSONNEL
+   WHERE PER_CODE = @perCode;
+
+   IF @ncount = 0
+      BEGIN
+        INSERT INTO r5personnel(PER_CODE,
+                                  PER_DESC,
+                                  PER_MRC,
+                                  PER_TRADE,
+                                  PER_NOTUSED,
+                                  PER_ORG,
+                                  PER_CREATED)
+        VALUES(@perCode,
+               ISNULL (@perDesc, '-'),
+               @perMRC,
+               '*',
+               @perNotUsed,
+               '*',
+               getdate ());
+        SELECT @flag = N'S'; 
+      END
+      ELSE
+      BEGIN  
+        UPDATE
+          R5PERSONNEL
+        SET
+          PER_DESC = @perDesc
+         ,PER_MRC  = @perMrc
+         ,PER_NOTUSED = @perNotUsed
+        WHERE
+          PER_CODE = @perCode;
+        SELECT @flag = N'S',
+               @message = N'The staff information has already existed.';
+      END;
+   
+    SELECT @flag AS flag,
+           @message as message;
+    
+end
+GO
+

@@ -1,0 +1,197 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+-- =============================================
+-- Version 2.0
+-- Author:Steve Zhang
+-- Create date:  2018-12-21 17:35:39
+-- Description: 手工生成验收单行
+-- Updated by Steve Zhang on 21 Dec 2018
+-- Remark: rewrite to create the asset with the actual part code instead of update afterwards
+-- =============================================
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_MANUAL_RECVLINE]
+    @receiptNo NVARCHAR(30),
+    @flag NVARCHAR(1) OUTPUT,
+    @message NVARCHAR(2000) OUTPUT
+WITH EXEC AS CALLER
+AS
+DECLARE @nchk INT;
+DECLARE @ncount INT;
+DECLARE @objclass NVARCHAR(8);
+DECLARE @objcate NVARCHAR(30);
+DECLARE @TDNCODE NVARCHAR(80);
+DECLARE @sEvtCode NVARCHAR(30);
+DECLARE @faCode NVARCHAR(30);
+DECLARE @faId NVARCHAR(30);
+DECLARE @sql NVARCHAR(100); 
+DECLARE @objdescZH NVARCHAR(80); 
+DECLARE @objDescEn NVARCHAR(80); 
+DECLARE @taskCode NVARCHAR(30); 
+
+DECLARE @sEvtReported  NVARCHAR(30);
+DECLARE @sEvtTarget  NVARCHAR(30);
+DECLARE @sEVTSchedend  NVARCHAR(30);
+DECLARE @sEvtCalStatus  NVARCHAR(30);
+DECLARE @sEvtFixed  NVARCHAR(30);
+
+DECLARE @ouCode NVARCHAR(80);
+DECLARE @corp NVARCHAR(15);
+DECLARE @partCode NVARCHAR(80);
+DECLARE @number INT;
+DECLARE @workNo NVARCHAR(30);
+
+BEGIN
+    SET @flag = 'S';
+    BEGIN TRY
+          --获取验收单父工单信息
+                
+          SELECT  @sEvtReported = EVT_REPORTED,
+                 @sEvtTarget = EVT_TARGET,
+                 @sEVTSchedend = EVT_SCHEDEND,
+                 @sEvtCalStatus = EVT_CALSTATUS,
+                 @sEvtFixed = EVT_FIXED,
+                 @ouCode = EVT_UDFCHAR08,
+                 @corp = EVT_ORG,
+                 @partCode = EVT_UDFCHAR18,
+                 @workNo = EVT_ORIGIN,
+                 @number = EVT_UDFNUM01
+            FROM R5EVENTS
+            WHERE EVT_CODE = @receiptNo;
+
+          SELECT @objcate = PAR_CATEGORY,
+               @objclass = PAR_CLASS,
+               @objDescEn = dbo.R5O7_O7GET_DESC('EN',
+                                                'PART',
+                                                PAR_CODE,
+                                                '',
+                                                ''), --Added by Joey Wang on 12 Dec 2018
+               @objdescZH = PAR_DESC                 --Added by Joey Wang on 12 Dec 2018
+           FROM R5PARTS
+          WHERE PAR_CODE = @partCode;
+
+        SELECT TOP 1
+               @faCode = LMD_FINANCECATETORY,
+               @faId = LMD_FINANCECATETORYID
+        FROM U5PARTCATEGORY
+        WHERE LMD_PARTCODE = @partCode
+              AND LMD_FINANCESYSTEM = @corp;
+        --and LMD_USAGECODE = 'MANUAL_OFFICE';
+
+    SELECT
+    @ncount = COUNT(*)
+    FROM
+    U5OBJECT_TDN_TOUSE
+    WHERE
+    EVT_CODE = @receiptNo
+    
+    IF @ncount < 1 
+    BEGIN
+       SELECT 'E' AS flag,
+               N'该验收单没有待创建的资产' AS message;
+    END
+    
+    set @nchk = 0;
+    
+    DECLARE
+        assetCodeCursor CURSOR LOCAL FOR
+          SELECT
+            OBJ_CODE
+          FROM
+            U5OBJECT_TDN_TOUSE
+          WHERE
+            EVT_CODE = @receiptNo
+    
+        OPEN assetCodeCursor
+        FETCH NEXT FROM assetCodeCursor
+            INTO
+              @TDNCODE
+
+        WHILE @@FETCH_STATUS = 0
+          BEGIN
+        --生成资产
+
+        --BEGIN TRAN;
+
+        INSERT INTO R5OBJECTS (OBJ_OBTYPE,
+                               OBJ_OBRTYPE,
+                               OBJ_GROUP,
+                               OBJ_USER,
+                               OBJ_CODE,
+                               OBJ_DESC,
+                               OBJ_CATEGORY,
+                               OBJ_CLASS,
+                               OBJ_CLASS_ORG,
+                               OBJ_MRC,
+                               OBJ_ORG,
+                               OBJ_STATUS,
+                               OBJ_PART,
+                               OBJ_PART_ORG,
+                               OBJ_COMMISS,
+                               OBJ_UDFCHAR31,
+                               OBJ_UDFCHAR33,
+                               OBJ_UDFCHAR12,
+                               OBJ_UDFCHAR22,
+                               OBJ_UDFCHAR45)
+        VALUES ('A',
+                'A',
+                'R5',
+                'R5',
+                @TDNCODE,
+                            --  N'临时设备描述',
+                @objdescZH, --Added by Joey Wang on 12 Dec 2018
+                @objcate,
+                @objclass,
+                '*',
+                '*',
+                @corp,
+                'A01',
+                @partCode,
+                '*',
+                GETDATE(),
+                @faCode,
+                @faId,
+                @workNo,
+                dbo.R5O7_O7GET_DESC('ZH',
+                                    'PERS',
+                                    @workNo,
+                                    '',
+                                    ''),
+                @receiptNo);
+        
+        UPDATE R5DESCRIPTIONS
+        SET DES_TEXT = @objDescEn, --Added by Joey Wang on 12 Dec 2018
+            DES_TRANS = '+'
+        WHERE DES_CODE = @TDNCODE
+              AND DES_ENTITY = 'OBJ'
+              AND DES_LANG = 'EN';
+
+
+
+        set @nchk = @nchk + 1;
+        --COMMIT TRAN;
+        FETCH NEXT FROM assetCodeCursor
+              INTO
+                @TDNCODE
+       
+      END;
+      CLOSE assetCodeCursor
+      DEALLOCATE assetCodeCursor  
+      
+      --全部创建完成后删除待创建表中的所有大阿里编号
+ --     DELETE FROM U5OBJECT_TDN_TOUSE WHERE EVT_CODE = @receiptNo;
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+    ---以便Mybatis获取返回结果。
+    SELECT @flag AS flag,
+           @message AS message
+
+END;
+
+GO

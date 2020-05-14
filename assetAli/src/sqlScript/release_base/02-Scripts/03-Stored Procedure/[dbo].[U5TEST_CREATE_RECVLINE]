@@ -1,0 +1,78 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE dbo.U5TEST_CREATE_RECVLINE
+/**************************************
+*Created by Joey Wang
+******** On 10 Dec 2018 
+*********to test the createrecvline sp 
+************************************/
+    @evtCode NVARCHAR(30),
+    @objudf10 NVARCHAR(80), --po NUMBER
+    @qty INT
+AS
+DECLARE @flag NVARCHAR(1),
+        @message NVARCHAR(2000),
+        @sUserCode NVARCHAR(30),      --Receiver-
+        @evtUdf01 NVARCHAR(80),       --Purchase Category
+        @evtUdf02 NVARCHAR(80),       --Shipment Line ID
+        @obj_Commiss NVARCHAR(10),    --Date of commission
+        @obj_Org NVARCHAR(15),        --Organization
+        @OBJ_UDFCHAR03 NVARCHAR(80),  --OU
+        @OBJ_UDFCHAR04 NVARCHAR(80),  --Orientation Type
+        @OBJ_UDFCHAR10 NVARCHAR(80),  -- PO Number
+        @OBJ_UDFCHAR11 NVARCHAR(80),  --Shipment Notice No.
+        @OBJ_UDFCHAR17 NVARCHAR(80),  --Original Config Info.
+        @OBJ_UDFCHAR29 NVARCHAR(80),  --Finance Book
+        @OBJ_UDFCHAR30 NVARCHAR(80),  --Currency
+        @OBJ_VALUE NUMERIC(24, 6),    --Unit price in purchasing Currency
+        @OBJ_UDFCHAR31 NVARCHAR(80),  --Finance Category Code
+        @OBJ_UDFCHKBOX02 NVARCHAR(1), --Tax Inclusive
+        @evtUdf22 NVARCHAR(30);       --Responsible Person
+
+BEGIN
+    SELECT @sUserCode = EVT_ORIGIN,
+           @evtUdf01 = EVT_UDFCHAR01,
+           @evtUdf02 = EVT_UDFCHAR02,
+           @obj_Commiss =CONVERT(NVARCHAR(10),GETDATE(),25),
+           @obj_Org = EVT_ORG,
+           @OBJ_UDFCHAR03 = 'TA',
+           @OBJ_UDFCHAR04 = 'S01',
+           @OBJ_UDFCHAR10 = evt_udfchar10,
+           @OBJ_UDFCHAR11 = evt_udfchar11,
+           @OBJ_UDFCHAR17 = 'test',
+           @OBJ_UDFCHAR29 = 'finance book',
+           @OBJ_UDFCHAR30 = 'CNY',
+           @OBJ_VALUE = 100000.00,
+           @OBJ_UDFCHAR31 = 'finance category code',
+           @OBJ_UDFCHKBOX02 = '+',
+           @evtUdf22 = EVT_ORIGIN
+    FROM R5EVENTS
+    WHERE EVT_CODE = @evtCode;
+    EXEC [dbo].[U5PRO_CREATE_RECVLINE] @sUserCode,
+                                       @evtCode,
+                                       @evtUdf01,
+                                       @evtUdf02,
+                                       @obj_Commiss,
+                                       @obj_Org,
+                                       @OBJ_UDFCHAR03,
+                                       @OBJ_UDFCHAR04,
+                                       @OBJ_UDFCHAR10,
+                                       @OBJ_UDFCHAR11,
+                                       @OBJ_UDFCHAR17,
+                                       @OBJ_UDFCHAR29,
+                                       @OBJ_UDFCHAR30,
+                                       @OBJ_VALUE,
+                                       @OBJ_UDFCHAR31,
+                                       @OBJ_UDFCHKBOX02,
+                                       @evtUdf22,
+                                       @qty,
+                                       @flag,
+                                       @message;
+END;
+
+GO

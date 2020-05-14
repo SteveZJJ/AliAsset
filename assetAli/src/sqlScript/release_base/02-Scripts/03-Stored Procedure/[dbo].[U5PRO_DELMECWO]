@@ -1,0 +1,94 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE dbo.U5PRO_DELMECWO
+    /************************************
+*Author: Joey Wang
+*Date Created: 7 Dec 2018
+*Remark: To delete MEC wo and parent WO
+*        to support auto-testing 
+*************************************/
+    @WONumber NVARCHAR(30)
+WITH EXEC AS CALLER
+AS
+DECLARE @chk1 NUMERIC(10),
+        @errMsg NVARCHAR(500);
+BEGIN
+    SELECT @chk1 = COUNT(1) -- Check if there is children WO
+    FROM R5EVENTS
+    WHERE EVT_JOBTYPE = 'MEC'
+          AND EVT_PARENT = @WONumber;
+    IF @chk1 > 0
+    BEGIN TRY
+	  BEGIN TRAN
+        DELETE FROM dbo.R5EVENTS --Delete children WO
+        WHERE EVT_JOBTYPE = 'MEC'
+              AND EVT_PARENT = @WONumber;
+        DELETE FROM dbo.R5EVENTOBJECTS
+        WHERE EXISTS (   SELECT 1
+                         FROM R5EVENTS
+                         WHERE EOB_EVENT = EVT_CODE
+                               AND EVT_PARENT = @WONumber);
+	   COMMIT TRAN
+    END TRY
+    BEGIN CATCH
+        SET @errMsg = ERROR_MESSAGE();
+        SET @errMsg = N'删除子工单失败！U5PRO_DELMECWO' + @errMsg;
+        EXEC dbo.U5RAE '', @errMsg;
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END CATCH;
+
+    SET @chk1 = 0; --Check if there is transactions
+    SELECT @chk1 = COUNT(1)
+    FROM R5TRANSLINES;
+    IF @chk1 > 0
+    BEGIN TRY
+        DELETE FROM R5TRANSLINES --Delete transline
+        WHERE TRL_EVENT = @WONumber;
+
+        DELETE FROM dbo.R5TRANSACTIONS -- Delete transactions
+        WHERE TRA_TOCODE = @WONumber;
+    ---   COMMIT;
+    END TRY
+    BEGIN CATCH
+        SET @errMsg = ERROR_MESSAGE();
+        SET @errMsg = N'删除库存交易失败！U5PRO_DELMECWO' + @errMsg;
+        EXEC dbo.U5RAE '', @errMsg;
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END CATCH;
+    BEGIN TRY
+        SELECT @chk1 = COUNT(1)
+        FROM R5EVENTS
+        WHERE EVT_CODE = @WONumber
+              AND EVT_RSTATUS = 'C';
+        IF @chk1 > 0
+        BEGIN
+            UPDATE R5EVENTS
+            SET EVT_STATUS = 'R',
+                EVT_RSTATUS = 'R'
+            WHERE EVT_CODE = @WONumber;
+        END;
+        DELETE FROM R5EVENTS --Delete WO itself
+        WHERE EVT_CODE = @WONumber;
+        DELETE FROM R5EVENTOBJECTS
+		WHERE eob_event = @WONumber;
+    END TRY
+    BEGIN CATCH
+        SET @errMsg = ERROR_MESSAGE();
+        SET @errMsg = N'删除父工单失败！U5PRO_DELMECWO' + @errMsg;
+        RAISERROR(@errMsg,
+                  16,
+                  1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END CATCH;
+
+END;
+
+GO

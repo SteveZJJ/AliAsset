@@ -1,0 +1,418 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_PICKUPEVENT]
+    @corp NVARCHAR(15),
+    @ouCode NVARCHAR(80),
+    @reqCode NVARCHAR(80),
+    @evtJobType NVARCHAR(4),
+    @evtStatus NVARCHAR(4),
+    @evtDesc NVARCHAR(30),
+    @reqStatus NVARCHAR(80),
+    @hrlocation NVARCHAR(30),
+    @hrlocationDesc NVARCHAR(80),
+    @department NVARCHAR(30),
+    @personCode NVARCHAR(15),
+    @personName NVARCHAR(30),
+    @dueDate NVARCHAR(30),
+    @comments NVARCHAR(256),
+    @central NVARCHAR(15)
+WITH EXEC AS CALLER
+AS
+/********************
+**function 创建入职领用工单
+**author JasonZhao
+**Date 2018-08-23
+** @corpnvarchar(30) ,@ouCodenvarchar(30) ,@reqCodenvarchar(30) ,
+** @reqStatusnvarchar(30) ,@locationnvarchar(30) ,@departmentnvarchar(30)
+**,@personCodenvarchar(30) ,@personNamenvarchar(30) ,@dueDatenvarchar(30) ,@commentsnvarchar(30)
+**Updated by Joey Wang on 26 Oct 2018
+**Change the default value of location in case the HR location is not mapped to any EAM location
+********************/
+DECLARE @ncount BIGINT,
+        @flag NVARCHAR(1) = 'S',
+        @location NVARCHAR(30),
+        @locationOrg NVARCHAR(15),
+        @message NVARCHAR(2000),
+        @receiptNo NVARCHAR(30),
+        @OBJCODE NVARCHAR(30),
+        @OBJORG NVARCHAR(15),
+        @evt_udfchar16 NVARCHAR(15),
+        @sevtCode NVARCHAR(30),
+        @sendEmail  NVARCHAR(1);
+       
+
+BEGIN
+    EXEC dbo.U5PRO_CHECK_PERSON @personCode, @personName;
+
+    SELECT @ncount = COUNT(1)
+    FROM U5LOCATIONMAPPING
+    WHERE LOM_3RDCODE = @hrlocation
+          AND LOM_3RDSYSTEM = N'HR'
+          AND ISNULL(LOM_NOTUSED, '-') = '-';
+
+    IF @ncount = 0
+    BEGIN
+        SELECT @flag = N'S',
+               @message = N'办公地点信息没有在EAM中维护！';
+               
+
+        INSERT INTO U5LOCATIONMAPPING
+        (
+            LOM_3RDCODE,
+            LOM_EAMCODE,
+            LOM_3RDDESC,
+            LOM_EAMDESC,
+            LOM_3RDSYSTEM,
+            LOM_NOTUSED,
+            CREATEDBY,
+            CREATED
+        )
+        VALUES
+        (   @hrlocation, -- LOM_3RDCODE - nvarchar(200)
+            (CASE @corp
+                 WHEN 'ALIO' THEN
+                     -- '865710101'
+                     'ALIO'
+                 WHEN 'ALID' THEN
+                     --  '865710102'
+                     'ALID'
+                 ELSE
+                     -- '865710101'
+                     'ALIO'
+             END
+            ),           -- LOM_EAMCODE - nvarchar(30)
+            @hrlocationDesc, -- LOM_3RDDESC - nvarchar(200)
+            NULL,        -- LOM_EAMDESC - nvarchar(80)
+            N'HR',       -- LOM_3RDSYSTEM - nvarchar(30)
+            '-',         -- LOM_NOTUSED - nvarchar(1)
+            'R5',        -- CREATEDBY - nvarchar(30)
+            GETDATE()    -- CREATED - datetime
+            );
+    END;
+    SET @department = N'*';
+    
+    
+    
+    --根据hr地点查询该归口下的所有仓库。
+    
+    SELECT
+      TOP 1
+      @evt_udfchar16 = STR_CODE
+    FROM
+      R5STORES
+    WHERE
+      STR_UDFCHAR01 IN (SELECT
+                          LOM_EAMCODE
+                        FROM
+                          U5LOCATIONMAPPING
+                        WHERE
+                          LOM_3RDCODE = @hrlocation 
+                          AND LOM_3RDSYSTEM = N'HR'
+                          AND ISNULL(LOM_NOTUSED, '-') = '-') AND
+      str_class = @central and
+      STR_NOTUSED = '-'
+      
+      SELECT @location = STR_UDFCHAR01
+      FROM R5STORES
+      WHERE STR_CODE = @evt_udfchar16
+    
+--    SELECT @location = LOM_EAMCODE
+--    FROM U5LOCATIONMAPPING
+--    WHERE LOM_3RDCODE = @hrlocation
+--          AND LOM_3RDSYSTEM = N'HR'
+--          AND ISNULL(LOM_NOTUSED, '-') = '-';
+
+    IF @location IN ('ALIO','ALID')
+      set @sendEmail = '+'
+
+    SELECT @ncount = COUNT(1)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+    FROM R5OBJECTS
+    WHERE OBJ_CODE = @location
+          AND OBJ_OBTYPE = 'L';
+
+    IF @ncount = 0
+    BEGIN
+        SELECT @flag = N'S',
+            @message = N'位置信息不存在';
+    END;
+
+    SELECT @locationOrg = OBJ_ORG
+    FROM R5OBJECTS
+    WHERE OBJ_CODE = @location
+          AND OBJ_OBTYPE = 'L';
+
+    SELECT @ncount = COUNT(1)
+    FROM R5EVENTS
+    WHERE EVT_JOBTYPE = @evtJobType
+          AND EVT_UDFCHAR01 = @reqCode
+          AND EVT_CLASS = @central;
+          
+   ---根据Location 查找仓库。
+
+--    SELECT TOP 1
+--           @evt_udfchar16 = STR_CODE
+--    FROM R5STORES
+--    WHERE STR_NOTUSED = '-'
+--          AND STR_UDFCHAR01 = @location
+--          AND STR_CLASS = @central;
+
+    BEGIN TRY
+        IF @ncount = 0
+        BEGIN
+            EXEC P_GETNEXTID 'S5EVENT', @receiptNo OUTPUT;
+           
+
+            IF @evtJobType = N'20RZ'
+                SET @evtDesc = @evtDesc + CONVERT(NVARCHAR, GETDATE(), 106);
+
+           INSERT INTO
+              R5EVENTS(
+                EVT_CODE
+               ,EVT_DESC
+               ,EVT_TYPE
+               ,EVT_RTYPE
+               ,EVT_OBTYPE
+               ,EVT_OBRTYPE
+               ,EVT_STATUS
+               ,EVT_RSTATUS
+               ,EVT_ENTEREDBY
+               ,EVT_JOBTYPE
+               ,EVT_UDFCHAR16
+               ,EVT_ORG
+               ,EVT_UDFCHAR01
+               ,EVT_UDFCHAR03
+               ,EVT_UDFCHAR08
+               ,EVT_OBJECT
+               ,EVT_OBJECT_ORG
+               ,EVT_MRC
+               ,EVT_ORIGIN
+               ,EVT_UDFDATE02
+               ,EVT_WORKADDRESS
+               ,EVT_DATE
+               ,EVT_DURATION
+               ,EVT_CLASS
+               ,EVT_CLASS_ORG
+               ,EVT_UDFCHAR07)
+              VALUES
+                (
+                  @receiptNo
+                 ,@evtDesc
+                 ,'JOB'
+                 ,'JOB'
+                 ,'L'
+                 ,'L'
+                 ,'TS00'
+                 ,'R'
+                 ,'R5'
+                 ,@evtJobType
+                 ,@evt_udfchar16
+                 ,@corp
+                 ,@reqCode
+                 ,@reqStatus
+                 ,@ouCode
+                 ,@location
+                 ,@locationOrg
+                 ,@department
+                 ,@personCode
+                 ,CAST(@dueDate AS DATE)
+                 ,@comments
+                 ,GETDATE()
+                 ,1
+                 ,ISNULL(
+                    @central
+                   ,'*')
+                 ,@corp
+                 ,@hrlocationDesc);
+                 
+            UPDATE R5EVENTS 
+               SET EVT_STATUS = CASE @sendEmail
+                                  WHEN N'+' THEN N'TS30' ----待修正
+                               ELSE     
+                                  (CASE @reqStatus
+                                    WHEN N'完成报到' THEN N'TS40' --待办
+                                    WHEN N'待邀约报到' THEN N'TS10' --审批中
+                                    WHEN N'已邀约待报到' THEN N'TS10' --审批中
+                                    --,达到报到日期则修改为待办
+                                    WHEN N'取消报到' THEN N'TS50' --取消
+                                    WHEN N'未满足报到条件' THEN N'TS10' --审批中
+                                    WHEN N'未报到' THEN N'TS50' --取消
+                                    WHEN N'已重新发起' THEN N'TS50' --取消
+                                    WHEN N'未满足报道条件' THEN N'TS10' --审批中
+                                    --------离职单状态更新-----------
+                                    WHEN N'AUDITED' THEN N'TS40'
+                                    WHEN N'CANCELED' THEN N'TS50'
+                                    --------离职单状态更新-----------
+                                    ELSE N'TS10' --审批中
+                                  END)
+                               END
+             WHERE EVT_CODE = @receiptNo AND EVT_JOBTYPE = @evtJobType
+
+            IF @evtJobType = '30LZ'
+            BEGIN
+                DECLARE objLists CURSOR LOCAL FOR
+                SELECT OBJ_CODE,
+                       OBJ_ORG
+                FROM R5OBJECTS
+                WHERE OBJ_UDFCHAR13 = @personCode
+                      AND
+                      (
+                          SELECT MRC_CLASS FROM R5MRCS WHERE MRC_CODE = OBJ_UDFCHAR14
+                      ) = @central
+                      AND OBJ_OBTYPE = 'A';
+
+                BEGIN
+
+                    --ADD BY Steve 2018-10-13  归还标准取组织级别的安装参数
+                    DECLARE @TASKCODE NVARCHAR(MAX);
+                    SELECT @TASKCODE = OPA_DESC
+                    FROM R5ORGANIZATIONOPTIONS
+                    WHERE OPA_CODE = '@GHBZ'
+                          AND OPA_ORG = @corp;
+
+                    INSERT INTO R5ACTIVITIES --创建标准验收项目1- 检查表
+                    (
+                        ACT_TASK,
+                        ACT_TRADE,
+                        ACT_ACT,
+                        ACT_EVENT,
+                        ACT_MRC,
+                        ACT_START,
+                        ACT_QTY,
+                        ACT_EST,
+                        ACT_REM,
+                        ACT_TIME,
+                        ACT_PERSONS,
+                        ACT_DURATION,
+                        ACT_NOTE,
+                        ACT_TASKREV
+                    )
+                    VALUES
+                    (@TASKCODE, '*', 10, @receiptNo, '*', GETDATE(), 1, 1, 1, 1, 1, 1, N'归还标准', 0);
+                    OPEN objLists;
+                    FETCH NEXT FROM objLists
+                    INTO @OBJCODE,
+                         @OBJORG;
+
+                    WHILE @@FETCH_STATUS = 0
+                    BEGIN
+                        EXEC P_GETNEXTID 'S5EVENT', @sevtCode OUTPUT;
+
+                        INSERT INTO R5EVENTS --添加子工单语句 -跟设备，部门
+                        (
+                            EVT_CODE,
+                            EVT_DESC,
+                            EVT_TYPE,
+                            EVT_RTYPE,
+                            EVT_STATUS,
+                            EVT_RSTATUS,
+                            EVT_ORG,
+                            EVT_JOBTYPE,
+                            EVT_OBTYPE,
+                            EVT_OBRTYPE,
+                            EVT_OBJECT,
+                            EVT_OBJECT_ORG,
+                            EVT_DATE,
+                            EVT_MRC,
+                            EVT_DURATION,
+                            EVT_ENTEREDBY,
+                            EVT_PARENT,
+                            EVT_ROUTEPARENT
+                        )
+                        VALUES
+                        (   @sevtCode, @evtDesc, 'JOB', 'JOB', @evtStatus, 'R', @corp, 'MEC', --固定
+                            'A',                                                              --固定
+                            'A', @OBJCODE,                                                    --设备编码
+                            @OBJORG,                                                          --设备组织
+                            GETDATE(), '*',                                                   ---设备部门
+                            1, 'R5', @receiptNo, @receiptNo);
+
+
+
+
+                        FETCH NEXT FROM objLists
+                        INTO @OBJCODE,
+                             @OBJORG;
+                    END;
+
+                    CLOSE objLists;
+                    DEALLOCATE objLists;
+                END;
+            END;
+        END;
+        ELSE
+        BEGIN
+        
+            print 'Update Events'
+            SELECT top 1 @receiptNo = EVT_CODE
+            FROM R5EVENTS
+            WHERE EVT_UDFCHAR01 = @reqCode
+                  AND EVT_JOBTYPE = @evtJobType
+                  AND EVT_CLASS = @central
+                  AND EVT_STATUS <> N'C';
+
+            UPDATE R5EVENTS
+            SET EVT_UDFCHAR03 = ISNULL(@reqStatus, EVT_UDFCHAR03),
+                EVT_WORKADDRESS = ISNULL(@comments, EVT_WORKADDRESS),
+                EVT_ORIGIN = ISNULL(@personCode, EVT_ORIGIN),
+                EVT_UDFDATE02 = ISNULL(CAST(@dueDate AS DATE), EVT_UDFDATE02),
+                EVT_MRC = ISNULL(@department, EVT_MRC),
+                --EVT_DESC = isnull(@evtDesc, EVT_DESC),
+                EVT_UDFCHAR07 = ISNULL(@hrlocationDesc,EVT_UDFCHAR07),
+                EVT_OBJECT = ISNULL(@location, EVT_OBJECT),
+                EVT_OBJECT_ORG = ISNULL(@locationOrg, EVT_OBJECT_ORG),
+                EVT_STATUS =CASE EVT_STATUS
+                                 WHEN N'TS30' THEN
+                                    N'TS30'
+                                 ELSE
+                                  (CASE @reqStatus
+                                       WHEN N'完成报到' THEN
+                                           N'TS40' --待办
+                                       WHEN N'待邀约报到' THEN
+                                           N'TS10' --审批中
+                                       WHEN N'已邀约待报到' THEN
+                                           N'TS10' --审批中
+                                       --,达到报到日期则修改为待办
+                                       WHEN N'取消报到' THEN
+                                           N'TS50' --取消
+                                       WHEN N'未满足报到条件' THEN
+                                           N'TS10' --审批中
+                                       WHEN N'未报到' THEN
+                                           N'TS50' --取消
+                                       WHEN N'已重新发起' THEN
+                                           N'TS50' --取消
+                                       WHEN N'未满足报道条件' THEN
+                                           N'TS10' --审批中
+                                       --------离职单状态更新-----------
+                                       WHEN N'AUDITED' THEN
+                                           N'TS40'
+                                       WHEN N'CANCELED' THEN
+                                           N'TS50'
+                                       --------离职单状态更新-----------
+                                       ELSE
+                                           N'TS10' --审批中
+                                  END)
+                            END
+            WHERE EVT_code = @receiptNo;
+            
+        END;
+        
+        
+    END TRY
+    BEGIN CATCH
+        ---便于Mybatis获取结果。
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+
+    SELECT @flag AS flag,
+           @message AS message,
+           @receiptNo param1;
+END;
+
+GO

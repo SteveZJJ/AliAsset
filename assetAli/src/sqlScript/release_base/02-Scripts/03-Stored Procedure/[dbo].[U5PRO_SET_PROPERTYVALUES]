@@ -1,0 +1,52 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_SET_PROPERTYVALUES]
+   @prvProperty    NVARCHAR (8),
+   @prvRentity      NVARCHAR (4),
+   @prvCode        NVARCHAR (100),
+   @prvValue       NVARCHAR (40),
+   @prvClass      nvarchar(8)
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+
+BEGIN
+   SELECT @ncount = count (1)
+     FROM r5propertyvalues
+    WHERE     prv_code = @prvCode
+          AND PRV_PROPERTY = @prvproperty
+          AND PRV_RENTITY = @prvRentity
+		  and prv_class=@prvClass;
+
+   IF @ncount = 0
+      BEGIN
+         INSERT INTO R5PROPERTYVALUES (PRV_PROPERTY,
+                                       PRV_RENTITY,
+                                       PRV_CODE,
+                                       PRV_VALUE,
+                                       PRV_CLASS,
+                                       PRV_CLASS_ORG)
+         VALUES (@prvProperty,
+                 @prvRentity,
+                 @prvCode,
+                 @prvValue,
+                 @prvClass,
+                 '*');
+      END
+   ELSE
+      BEGIN
+         UPDATE R5PROPERTYVALUES
+            SET PRV_VALUE = @prvValue
+          WHERE     prv_code = @prvCode
+                AND PRV_PROPERTY = @prvproperty
+                AND PRV_RENTITY = @prvRentity;
+      END;
+END
+
+GO

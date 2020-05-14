@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eam.mybatis.dao.PickupReturnMapper">
+
+    <select id="createPickupEvent"
+            parameterType="com.eam.mybatis.model.PickupOrReturnMessage" statementType="CALLABLE"
+            resultType="com.eam.mybatis.model.AliResultProcedure">
+        exec [dbo].[u5Pro_create_pickupevent]
+                #{corp}, #{ouCode}, #{reqCode}, #{evtJobType}, #{evtStatus}, #{evtDesc}, #{reqStatus}, #{location},#{locationDesc},
+                #{department}, #{personCode}, #{personName}, #{dueDate}, #{comments}, #{central}
+    </select>
+    <select id="updatePickupLine"
+            parameterType="map" statementType="CALLABLE">
+        exec [dbo].[u5Pro_create_evtpartplan]
+                #{evtCode}, #{reqLine}, #{partCode}, #{normalModel}, #{specification}, #{qty}, #{duration}
+    </select>
+    <update id="registerExpressNo" parameterType="map" statementType="CALLABLE">
+        update [r5events]
+        set [evt_udfchar13] = #{expressNo}
+        where [evt_code] = #{evtCode}
+    </update>
+    <update id="cleanPickupLine" parameterType="map" statementType="CALLABLE">
+        exec dbo.u5pro_clean_evtParts #{evtCode}
+    </update>
+    <update id="cleanDetailEvents" parameterType="map" statementType="CALLABLE">
+        exec dbo.u5pro_clean_evtobjects #{evtCode}
+    </update>
+    <update id="updateDetailEvents" parameterType="map" statementType="CALLABLE">
+        exec dbo.u5pro_create_evtobjects #{evtCode}, #{objCode}, #{duration}
+    </update>
+    <select id="createDailyEvent"
+            parameterType="com.eam.mybatis.model.PickupOrReturnMessage" statementType="CALLABLE"
+            resultType="com.eam.mybatis.model.AliResultProcedure">
+        exec [dbo].[u5Pro_create_dailyevent]
+                #{corp}, #{ouCode}, #{reqCode}, #{evtJobType}, #{evtStatus}, #{evtDesc}, #{reqStatus}, #{location},
+                #{department}, #{initialPerson},
+                #{initialPersonName},
+                #{responsible},
+                #{responsibleName},
+                #{onBehalfMark},
+                #{borrowType},
+                #{usage}, #{comments}
+    </select>
+    <insert id="insertEventFiles"
+            parameterType="com.eam.mybatis.model.Attachment">
+        insert into U5EVENTFILE (wof_wo, wof_line, wof_filename, wof_url)
+        values (#{eventCode}, #{line}, #{name}, #{url})
+    </insert>
+    <select id="getPersonNamebyCode" parameterType="String" resultType="String">
+        SELECT PER_DESC FROM R5PERSONNEL WHERE ISNULL(PER_NOTUSED,'-') = '-' AND PER_CODE = #{personCode}
+    </select>
+
+    <select id="createTransferReturnEvent"
+            parameterType="com.eam.mybatis.model.PickupOrReturnMessage" statementType="CALLABLE"
+            resultType="com.eam.mybatis.model.AliResultProcedure">
+        exec [dbo].[u5Pro_creupd_hrevent]
+                #{corp}, #{ouCode}, #{reqCode}, #{evtJobType}, #{evtStatus}, #{evtDesc}, #{reqStatus}, #{location},#{locationDesc},
+                #{department}, #{personCode}, #{personName}, #{dueDate}, #{comments}, #{central},#{formerLeader},#{newDept}
+    </select>
+</mapper>

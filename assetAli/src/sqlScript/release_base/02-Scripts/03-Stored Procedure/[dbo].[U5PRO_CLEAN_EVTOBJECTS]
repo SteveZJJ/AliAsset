@@ -1,0 +1,18 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CLEAN_EVTOBJECTS]
+@evtCode nvarchar(30)
+WITH EXEC AS CALLER
+AS
+begin
+ delete from R5EVENTS
+ where evt_jobtype='MEC'
+ AND EVT_PARENT=@EVTCODE;
+end
+
+GO

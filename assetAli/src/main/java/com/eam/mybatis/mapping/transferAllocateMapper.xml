@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eam.mybatis.dao.TransferAllocateMapper">
+
+    <select id="createTransferEvent"
+            parameterType="com.eam.mybatis.model.TransferOrAllocateMessage" statementType="CALLABLE"
+            resultType="com.eam.mybatis.model.AliResultProcedure">
+        EXEC dbo.U5PRO_CREATE_TRANSFEREVENT  #{corp},
+                                          #{ouCode},
+                                          #{evtJobType},
+                                          #{evtStatus},
+                                          #{evtDesc},
+                                          #{department},
+                                          #{personCode},
+                                          #{personName},
+                                          #{applicantCode},
+                                          #{applicantName},
+                                          #{receiverCode},
+                                          #{receiverName},
+                                          #{fromLocation},
+                                          #{toLocation},
+                                          #{fromOUCode},
+                                          #{toOUCode},
+                                          #{fromRegionalSection},
+                                          #{fromRegionalSectionDesc},
+                                          #{toRegionalSection},
+                                          #{toRegionalSectionDesc},
+                                          #{fromCostCode},
+                                          #{toCostCode},
+                                          #{fromAreaAdmin},
+                                          #{toAreaAdmin},
+                                          #{fromAreaFAAdmin},
+                                          #{toAreaFAAdmin},
+                                          #{ifAgency},
+                                          #{fromStore},
+                                          #{toStore},
+                                          #{comments},
+                                          #{evtCode},
+                                          #{language}
+    </select>
+
+    <update id="updateDetailEvents" parameterType="com.eam.mybatis.model.TransferLine" statementType="CALLABLE">
+        exec dbo.U5PRO_CREATE_EVTOBJECTLIST #{evtCode},
+                                            #{assetCode},
+                                            #{faAssetType},
+                                            #{originValue},
+                                            #{netValue},
+                                            #{currencyCode},
+                                            #{taxRate},
+                                            #{assignPrice},
+                                            #{assignCurrencyCode},
+                                            #{detail},
+                                            #{project},
+                                            #{lineStatus},
+                                            #{fromCorp},
+                                            #{toCorp},
+                                            #{fromCCID},
+                                            #{toCCID},
+                                            #{fromCCIDSegments},
+                                            #{toCCIDSegments},
+                                            #{newFixAssetCode},
+                                            #{lineProcessStatus},
+                                            #{language}
+    </update>
+
+    <update id="cleanDetailEvents" parameterType="map" statementType="CALLABLE">
+        exec dbo.U5PRO_CLEAN_EVTOBJECTLIST #{evtCode}
+    </update>
+
+    <update id="cleanRequistionLines" parameterType="map" statementType="CALLABLE">
+        exec dbo.U5PRO_CLEAN_REQUIOBJECTS #{evtCode}
+    </update>
+
+    <select id="queryEventHeader" parameterType="map" resultType="com.eam.mybatis.model.TransferOrAllocateMessage">
+        SELECT EVT_CODE AS evtCode,
+               EVT_DESC AS evtDesc,
+               EVT_JOBTYPE AS evtJobtype,
+               dbo.R5O7_O7GET_DESC(#{language},'UCOD',EVT_JOBTYPE, 'JBTP', 'JBTP')  AS JobTypeDesc,
+               EVT_ORG as corp,
+               dbo.R5O7_O7GET_DESC(#{language},'ORG',EVT_ORG, '', '')  AS corpDesc,
+               EVT_UDFCHAR07 AS ouCode,
+               EVT_MRC AS department,
+               dbo.R5O7_O7GET_DESC(#{language},'MRC',EVT_MRC, '', '')  as departmentDesc,
+               EVT_ORIGIN AS personCode,
+               EVT_UDFCHAR20 AS personName,
+               EVT_CREATED AS duedate,
+               EVT_STATUS AS evtStatus,
+               dbo.R5O7_O7GET_DESC(#{language},'UCOD',EVT_STATUS, 'EVST', 'EVST')  as statusDesc,
+               EVT_UDFCHAR12 AS applicantCode,
+               EVT_UDFCHAR22 AS applicantName,
+               EVT_UDFCHAR13 AS receiverCode,
+               EVT_UDFCHAR23 AS receiverName,
+               EVT_UDFCHKBOX01 AS ifAgency,
+               EVT_WORKADDRESS AS comments,
+               EVT_UDFCHAR14 AS fromLocation,
+               EVT_UDFCHAR16 AS fromLocationDesc,
+               EVT_UDFCHAR15 as toLocation,
+               EVT_UDFCHAR17 as toLocationDesc,
+               EVT_UDFCHAR07 as fromOUCode,
+               EVT_UDFCHAR08 as toOUCode,
+               EVT_UDFCHAR18 as fromOUDesc,
+               EVT_UDFCHAR19 as toOUDesc,
+               EVT_UDFCHAR09 as fromRegionalSection,
+               EVT_UDFCHAR11 as fromRegionalSectionDesc,
+               EVT_UDFCHAR10 as toRegionalSection,
+               EVT_UDFCHAR21 as toRegionalSectionDesc,
+               EVT_UDFCHAR24 AS fromAreaAdmin,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE PER_CODE = EVT_UDFCHAR24 AND ISNULL(PER_NOTUSED,'-') = '-') AS fromAreaAdminName,
+               EVT_UDFCHAR25 AS toAreaAdmin,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE PER_CODE = EVT_UDFCHAR25 AND ISNULL(PER_NOTUSED,'-') = '-') AS toAreaAdminName,
+               EVT_UDFCHAR26 AS fromAreaFAAdmin,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE PER_CODE = EVT_UDFCHAR26 AND ISNULL(PER_NOTUSED,'-') = '-') AS fromAreaFAAdminName,
+               EVT_UDFCHAR27 AS toAreaFAAdmin,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE PER_CODE = EVT_UDFCHAR27 AND ISNULL(PER_NOTUSED,'-') = '-') AS toAreaFAAdminName,
+               EVT_UDFCHAR28 AS fromCostCode,
+               EVT_UDFCHAR29 AS toCostCode
+        FROM R5EVENTS
+        WHERE EVT_CODE = #{evtCode}
+        and evt_jobtype = #{evt_jobtype}
+    </select>
+
+    <select id="queryEventItems" parameterType="map" resultType="com.eam.mybatis.model.TransferLine">
+        SELECT EOL_OBJCODE  assetCode,
+               EOL_OBJDESC  assetDesc,
+               EOL_OBJFIXCODE  fixAssetCode,
+               EOL_OBJOUCODE  ouCode,
+               EOL_OBJOUDESC  ouName,
+               EOL_OBJORG  corp,
+               EOL_OBJUSAGE  usage,
+               EOL_OBJUSAGEDESC  usageDesc,
+               EOL_OBJFATYPE  faAssetType,
+               EOL_OBJUSEMONTH  usageMonth,
+               EOL_OBJINITDATE  initDate,
+               EOL_OBJSERIALNO  serialNo,
+               EOL_FEATUREDESC  featureDesc,
+               EOL_OBJOWNER  ownerNo,
+               EOL_OWNERDESC  ownerDesc,
+               EOL_OBJDEPNO  depNo,
+               EOL_OBJDEPDESC  depDesc,
+               EOL_OBJUSERNO  userNo,
+               EOL_OBJUSERDESC  userDesc,
+               EOL_MANAGETYPE  manageType,
+               EOL_ORIGINVALUE  originValue,
+               EOL_NETVALUE  netValue,
+               EOL_SCRAPMONTH  scrapMonth,
+               EOL_OBJPARTCODE  partCode,
+               EOL_OBJPARTDESC  partDesc,
+               EOL_OBJSTATUS  assetStatus,
+               EOL_OBJSTATUSDESC  assetStatusDesc,
+               EOL_IFSCRAP  ifScrap,
+               EOL_OBJPARTCODE  assetType,
+               EOL_TAXRATE  taxRate,
+               EOL_CURRENCY  currencyCode,
+               EOL_ASSIGNPRICE  assignPrice,
+               EOL_ASSIGNCURRENCY  assignCurrencyCode,
+               EOL_DETAIL  detail,
+               EOL_PROJECT  project,
+               EOL_LINESTATUS  lineStatus
+              ,EOL_FROMCOPR  fromCorp
+              ,EOL_TOCORP  toCorp
+              ,EOL_FROMCCID  fromCCID
+              ,EOL_TOCCID  toCCID
+              ,EOL_FROMCCIDSEG  fromCCIDSegments
+              ,EOL_TOCCIDSEG  toCCIDSegments
+              ,EOL_PROCESSSTATUS  lineProcessStatus
+              ,EOL_NEWFIXCODE  newFixAssetCode
+              ,EOL_UDFCHAR01  errMsg
+          FROM U5EVTOBJLIST
+         WHERE EOL_EVTCODE = #{evtCode}
+    </select>
+    <select id="queryEventSummary" parameterType="map" resultType="com.eam.mybatis.model.LineSummary">
+        SELECT SUM(1) quantity,
+               EOL_FEATUREDESC  featureDesc,
+               EOL_OBJPARTCODE  partCode,
+               EOL_OBJPARTDESC  partDesc
+          FROM U5EVTOBJLIST
+         WHERE EOL_EVTCODE = #{evtCode}
+      GROUP BY EOL_FEATUREDESC, EOL_OBJPARTCODE, EOL_OBJPARTDESC
+    </select>
+    <select id="queryEventFiles" parameterType="map" resultType="com.eam.mybatis.model.Attachment">
+        SELECT WOF_WO AS eventCode,
+               WOF_LINE AS line,
+               WOF_URL  AS url,
+               WOF_FILENAME AS name
+          FROM U5EVENTFILE
+         WHERE WOF_WO = #{evtCode} and WOF_BIDLINE IS NULL
+    </select>
+    <select id="updateRequistionItems" parameterType="map" statementType="CALLABLE">
+        exec dbo.u5pro_create_requiobjects #{evtCode}, #{objCode}
+    </select>
+
+    <select id="queryRequiHeader" parameterType="map" resultType="com.eam.mybatis.model.TransferOrAllocateMessage">
+        SELECT REQ_CODE AS evtCode,
+               REQ_DESC AS evtDesc,
+               REQ_SOURCESYSTEM AS evtJobType,
+               dbo.R5O7_O7GET_DESC(#{language},'UCOD',REQ_SOURCESYSTEM, 'JBTP', 'JBTP')  AS JobTypeDesc,
+               REQ_ORG AS corp,
+               dbo.R5O7_O7GET_DESC(#{language},'ORG',REQ_ORG, '', '')  AS corpDesc,
+               REQ_ORIGIN AS personCode,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE PER_CODE = REQ_ORIGIN AND PER_NOTUSED = '-') AS personName,
+               REQ_DATE AS duedate,
+               REQ_STATUS AS evtStatus,
+               dbo.R5O7_O7GET_DESC(#{language},'UCOD',REQ_STATUS, 'RQST', 'RQST')  as statusDesc,
+               REQ_FROMCODE AS fromStore,
+               (SELECT STR_DESC FROM R5STORES WHERE STR_CODE = REQ_FROMCODE AND STR_NOTUSED = '-') AS fromStoreDesc,
+               REQ_TOCODE AS toStore,
+               (SELECT STR_DESC FROM R5STORES WHERE STR_CODE = REQ_TOCODE AND STR_NOTUSED = '-') AS toStoreDesc,
+               REQ_REJECTREASON AS comments,
+               (SELECT STR_UDFCHAR02 FROM R5STORES WHERE STR_CODE = REQ_FROMCODE AND STR_NOTUSED = '-') AS fromStoreOwner,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE PER_CODE = (SELECT STR_UDFCHAR02 FROM R5STORES WHERE STR_CODE = REQ_FROMCODE AND STR_NOTUSED = '-')) AS fromStoreOwnerName,
+               (SELECT STR_UDFCHAR02 FROM R5STORES WHERE STR_CODE = REQ_TOCODE AND STR_NOTUSED = '-') AS toStoreOwner,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE PER_CODE = (SELECT STR_UDFCHAR02 FROM R5STORES WHERE STR_CODE = REQ_TOCODE AND STR_NOTUSED = '-'))  AS toStoreOwnerName
+        FROM R5REQUISITIONS
+        WHERE REQ_CODE = #{evtCode}
+        and REQ_TYPE = 'STST'
+    </select>
+    <select id="queryRequiItems" parameterType="map" resultType="com.eam.mybatis.model.TransferLine">
+        SELECT AST_OBJCODE as assetCode,
+               AST_OBJDESC as assetDesc,
+               AST_OBJFIXCODE  fixAssetCode,
+               AST_OBJOUCODE  ouCode,
+               AST_OBJCORP  corp,
+               AST_OBJSERIALNO  serialNo,
+               AST_OBJBRAND + '-' + AST_OBJMODEL featureDesc,
+               AST_OBJOWNER  ownerNo,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE ISNULL(PER_NOTUSED,'-') = '-' AND PER_CODE = AST_OBJOWNER)  ownerDesc,
+               AST_OBJDEPNO  depNo,
+               dbo.R5O7_O7GET_DESC(#{language}, 'MRC', AST_OBJDEPNO, '', '')  depDesc,
+               AST_OBJUSERNO  userNo,
+               (SELECT PER_DESC FROM R5PERSONNEL WHERE ISNULL(PER_NOTUSED,'-') = '-' AND PER_CODE = AST_OBJOWNER)  userDesc,
+               AST_OBJPART  partCode,
+               dbo.R5O7_O7GET_DESC(#{language}, 'PART', AST_OBJPART, '', '')  partDesc,
+               AST_OBJSTATUS  assetStatus,
+               dbo.R5O7_O7GET_DESC(#{language}, 'UCOD', AST_OBJSTATUS, 'OBST', 'OBST')  assetStatusDesc,
+               AST_OBJPART  assetType
+        FROM U5ASSETSTOCKTRANS WHERE AST_EVTCODE = #{evtCode}
+    </select>
+
+    <select id="queryRequiSummary" parameterType="map" resultType="com.eam.mybatis.model.LineSummary">
+        SELECT SUM(1) quantity,
+               AST_OBJBRAND + '-' + AST_OBJMODEL featureDesc,
+               AST_OBJPART  partCode,
+               dbo.R5O7_O7GET_DESC(#{language}, 'PART', AST_OBJPART, '', '')  partDesc
+        FROM U5ASSETSTOCKTRANS WHERE AST_EVTCODE = #{evtCode}
+    GROUP BY AST_OBJPART, dbo.R5O7_O7GET_DESC('EN', 'PART', AST_OBJPART, '', ''), AST_OBJBRAND + '-' + AST_OBJMODEL
+    </select>
+
+
+    <insert id="insertEventFiles"
+            parameterType="com.eam.mybatis.model.Attachment">
+        insert into U5EVENTFILE (wof_wo, wof_line, wof_filename, wof_url)
+        values (#{eventCode}, #{line}, #{name}, #{url})
+    </insert>
+
+    <select id="getEvtJobtype" parameterType="String" resultType="String">
+        SELECT EVT_JOBTYPE FROM R5EVENTS WHERE EVT_CODE = #{evtCode}
+    </select>
+
+    <select id="updateEventLine" parameterType="com.eam.mybatis.model.TransferLine" statementType="CALLABLE"  resultType="com.eam.mybatis.model.AliResultProcedure">
+        exec [dbo].[U5PRO_CREUPD_EVTOBJLINE] #{assetCode},
+                                             #{faAssetType},
+                                             #{originValue},
+                                             #{netValue},
+                                             #{currencyCode},
+                                             #{taxRate},
+                                             #{assignPrice},
+                                             #{assignCurrencyCode},
+                                             #{detail},
+                                             #{project},
+                                             #{lineStatus},
+                                             #{fromCorp},
+                                             #{toCorp},
+                                             #{fromCCID},
+                                             #{toCCID},
+                                             #{fromCCIDSegments},
+                                             #{toCCIDSegments},
+                                             #{newFixAssetCode},
+                                             #{lineProcessStatus},
+                                             #{errMsg},
+                                             #{evtCode},
+                                             #{corp}
+
+    </select>
+
+    <select id="queryEventLines" parameterType="map" resultType="com.eam.mybatis.model.TransferLine">
+         SELECT EOL_EVTCODE  evtCode,
+                EOL_OBJCODE  assetCode,
+                EOL_OBJDESC  assetDesc,
+                EOL_OBJFIXCODE  fixAssetCode,
+                EOL_OBJOUCODE  ouCode,
+                EOL_OBJOUDESC  ouName,
+                EOL_OBJORG  corp,
+                EOL_OBJUSAGE  usage,
+                EOL_OBJUSAGEDESC  usageDesc,
+                EOL_OBJFATYPE  faAssetType,
+                EOL_OBJUSEMONTH  usageMonth,
+                EOL_OBJINITDATE  initDate,
+                EOL_OBJSERIALNO  serialNo,
+                EOL_FEATUREDESC  featureDesc,
+                EOL_OBJOWNER  ownerNo,
+                EOL_OWNERDESC  ownerDesc,
+                EOL_OBJDEPNO  depNo,
+                EOL_OBJDEPDESC  depDesc,
+                EOL_OBJUSERNO  userNo,
+                EOL_OBJUSERDESC  userDesc,
+                EOL_MANAGETYPE  manageType,
+                EOL_ORIGINVALUE  originValue,
+                EOL_NETVALUE  netValue,
+                EOL_SCRAPMONTH  scrapMonth,
+                EOL_OBJPARTCODE  partCode,
+                EOL_OBJPARTDESC  partDesc,
+                EOL_OBJSTATUS  assetStatus,
+                EOL_OBJSTATUSDESC  assetStatusDesc,
+                EOL_IFSCRAP  ifScrap,
+                EOL_OBJPARTCODE  assetType,
+                EOL_TAXRATE  taxRate,
+                EOL_CURRENCY  currencyCode,
+                EOL_ASSIGNPRICE  assignPrice,
+                EOL_ASSIGNCURRENCY  assignCurrencyCode,
+                EOL_DETAIL  detail,
+                EOL_PROJECT  project,
+                EOL_LINESTATUS  lineStatus
+                ,EOL_FROMCOPR  fromCorp
+                ,EOL_TOCORP  toCorp
+                ,EOL_FROMCCID  fromCCID
+                ,EOL_TOCCID  toCCID
+                ,EOL_FROMCCIDSEG  fromCCIDSegments
+                ,EOL_TOCCIDSEG  toCCIDSegments
+                ,EOL_PROCESSSTATUS  lineProcessStatus
+                ,EOL_NEWFIXCODE  newFixAssetCode
+                ,EOL_UDFCHAR01  errMsg
+          FROM U5EVTOBJLIST, R5EVENTS
+         WHERE 1=1
+           AND EOL_EVTCODE = EVT_CODE
+           <if test="evtCode != null and evtCode!= ''">
+               AND EVT_CODE = #{evtCode}
+           </if>
+           <if test="evtStatus !=null and evtStatus != ''">
+               AND EVT_STATUS = #{evtStatus}
+           </if>
+           <if test="assetCode != null and assetCode != ''">
+               AND EOL_OBJCODE = #{assetCode}
+           </if>
+           <if test="lineStatus != null and lineStatus != ''">
+               AND EOL_LINESTATUS = #{lineStatus}
+           </if>
+           <if test="corp !=null and corp != ''">
+               AND EVT_ORG = #{corp}
+           </if>
+           <if test="evt_jobtype != null and evt_jobtype !=''">
+               AND EVT_JOBTYPE = #{evt_jobtype}
+           </if>
+    </select>
+</mapper>

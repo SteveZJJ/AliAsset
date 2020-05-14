@@ -1,0 +1,59 @@
+————————————————————————————————————————————
+getAssetList获取我的资产清单
+GET:	http://100.69.200.73:9090/alieam/api/getAssetList?workNo=144959&language=ZH&start=0&limit=1&corp=ALIO
+result:
+{"flag":"S","message":null,"data":{"assets":[{"assetCode":"TDN000000000053","serialNo":"FVFWW4ADHV2H","assetName":"笔记本电脑-C0101","featureDesc":"苹果（APPLE）—Macbook Pro 15\"","userDesc":"ZOEZ","userId":"144959","faNo":"A50010299001444","sendTime":"2018-08-08","usedTime":"0","usage":null,"assetTypeDesc":"-","instanceId":"-","brand":null,"asset":null,"configChange":null,"depNo":null,"depName":null,"acceptDesc":null,"locationCode":null,"locationDesc":null,"locationNote":null,"model":null,"userNo":null,"orientation":null,"originalConfig":null,"ouCode":null,"partCode":null,"partDesc":null,"poNumber":null,"acceptNumber":null,"assetStatus":null,"storeCode":null,"storeDesc":null,"supplierName":null}],"totalCount":25}}
+————————————————————————————————————————————
+获取我的资产明细信息
+http://100.69.200.73:9090/alieam/api/getMyAssetDetails?assetCode=TDN000000000053&language=ZH
+---------assetDetails 资产信息，checkLists:非通用检查项  code 检查项属性，value 检查项值
+{"flag":"S","message":null,"data":{"assetDetails":{"assetCode":"TDN000000000088","serialNo":"序列号SN5","assetName":"笔记本电脑-C0101","featureDesc":"苹果（APPLE）—Macbook Pro 15\"","ownerDesc":"ZOEZ","ownerNo":"144959","fixAssetNo":"A50010299001472","sendTime":"2018-08-15","usedTime":"0","usage":null,"assetTypeDesc":null,"instanceId":null,"brand":"苹果（APPLE）","asset":"计算机设备","configChange":null,"depNo":null,"depName":null,"acceptDesc":null,"locationCode":null,"locationDesc":null,"locationNote":null,"model":"Macbook Pro 15\"","userNo":null,"userDesc":null,"orientation":"新增类型","originalConfig":"原始配置","ouCode":"A05","partCode":"C0101","partDesc":"笔记本电脑-C0101","poNumber":"PO35153895","acceptNumber":"DO10123065","assetStatus":"库存-可用","storeCode":"HEMA2","storeDesc":"上海虹桥仓库","supplierName":null,"manageType":"管理类别","state":"动态(流程+链接)","borrowStartDate":"2018-08-01","borrowEndDate":"2018-08-29","updatedConfig":"配置变更信息","corp":"HEMA"},"checkLists":[{"code":"有线MAC-1","value":"有线MAC-5"},{"code":"键盘","value":"键盘"},{"code":"内存","value":"内存"},{"code":"显卡","value":"显卡"},{"code":"无线网卡","value":"无线网卡"},{"code":"无线MAC","value":"无线MAC5"},{"code":"触摸板","value":"触摸板5"},{"code":"cpu","value":"asfdasf"},{"code":"硬盘","value":"硬盘"},{"code":"有线网卡","value":"有线网卡"}]}}
+————————————————————————————————————————————
+各字段定义如下：
+	public class U5MyAsset {
+	private String assetCode;//大阿里编号 obj_code
+	private String serialNo;//序列号 obj_serialno
+	private String assetName;//名称  根据代码取描述
+	private String featureDesc;//obj_udfchar05 品牌型号--根据代码取描述
+	private String ownerDesc;//obj_udfchar12  使用人，根据代码取描述
+	private String ownerNo;//obj_udfchar12
+	private String fixAssetNo;//obj_udfchar01 固定资产编号
+	private String sendTime;//obj_commiss  使用日期
+	private String usedTime;//已使用(月)
+	private String usage;//使用说明udfchar07
+	private String assetTypeDesc;//资产异动说明
+	private String instanceId;//资产异动任务单对应员工侧单据号
+	//---------以下是明细字段所需要的-----------------
+	private String brand;//品牌描述
+	private String asset;//资产类别描述 obj_category
+	private String configChange;//配置变更信息 obj_udfchar16
+	private String depNo;//归口管理部门 obj_udfchar14
+	private String depName;//归口管理部门描述
+	private String acceptDesc;//账簿obj_udfchar29
+	private String locationCode;//存放地点 obj_udfchar15
+	private String locationDesc;//存放地点 obj_udfchar15 取描述
+	private String locationNote;//详细位置信息obj_udfchar27
+	private String model;//型号 obj_udfchar05取描述
+	private String userNo;//obj_person desc
+	private String userDesc;//obj_person desc
+	private String orientation;//新增类型 obj_udfchar04 描述
+	private String originalConfig;//obj_udfchar17;
+	private String ouCode;//所属OU  obj_udfchar03
+	private String partCode;//物料编码 obj_part
+	private String partDesc;//物料描述
+	private String poNumber;//PO号	obj_udfchar10
+	private String acceptNumber;//采购发货单 obj_udfchar11
+	private String assetStatus;//状态 取描述
+	private String storeCode;//存放仓库
+	private String storeDesc;//存放仓库描述
+	private String supplierName;//供应商 objudfchar06
+	private String manageType;//管理类别
+	private String state;//动态(流程+链接)
+	private String borrowStartDate;//借用开始时间
+	private String borrowEndDate;//借用结束时间
+	private String updatedConfig;//配置变更信息
+	private String corp;//组织
+    }
+————————————————————————————————————————————
+————————————————————————————————————————————
+

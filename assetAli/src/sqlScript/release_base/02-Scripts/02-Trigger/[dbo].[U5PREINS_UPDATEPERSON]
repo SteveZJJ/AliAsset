@@ -1,0 +1,184 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER TRIGGER [dbo].[U5PREINS_UPDATEPERSON] ON [dbo].[U5PERSONEL_SYNC]
+AFTER INSERT
+AS
+/*test deployment */
+DECLARE @MRCCODE  NVARCHAR(80)
+DECLARE @PESCODE  NVARCHAR(50)
+DECLARE @PESDESC  NVARCHAR(80)
+DECLARE @PESMRC   NVARCHAR(50)
+DECLARE @PESSYNCSTATUS  NVARCHAR(8)
+DECLARE @PESSYNCMESSAGE  NVARCHAR(2000)
+DECLARE @PESSQLIDENTITY  INT
+DECLARE @PESNOTUSED NVARCHAR(8)
+
+DECLARE @NCOUNT INT
+DECLARE @NCOUNT1 INT
+
+IF @@ROWCOUNT > 0
+  BEGIN
+    SET NOCOUNT ON
+    --先校验全部同步员工的部门是否已经存在
+    
+    DECLARE
+      C_MRC CURSOR LOCAL FOR
+        SELECT
+         DISTINCT i.PES_MRC
+        FROM
+          INSERTED i
+    OPEN C_MRC
+    FETCH NEXT FROM C_MRC
+      INTO
+        @MRCCODE 
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+    
+      SELECT @NCOUNT = COUNT(1) FROM R5MRCS WHERE MRC_CODE = @MRCCODE;
+      IF @NCOUNT = 0
+        INSERT INTO R5MRCS (
+               MRC_CODE
+              ,MRC_DESC
+              ,MRC_CLASS
+              ,MRC_ORG
+              ,MRC_CLASS_ORG
+            
+            ) VALUES (
+               @MRCCODE -- MRC_CODE - nvarchar(15)
+              ,@MRCCODE -- MRC_DESC - nvarchar(80)
+              ,'*'
+              ,'*'
+              ,'*'
+            ) 
+    
+    FETCH NEXT FROM C_MRC
+      INTO
+        @MRCCODE 
+    END
+    CLOSE C_MRC
+    DEALLOCATE C_MRC
+
+    DECLARE
+      C_INSERTED CURSOR LOCAL FOR
+        SELECT
+         i.PES_CODE,
+         i.PES_DESC,
+         i.PES_MRC,
+         i.PES_SYNCSTATUS,
+         i.PES_SYNCMESSAGE,
+         i.PES_SQLIDENTITY,
+         i.PES_NOTUSED
+        FROM
+          INSERTED i
+
+    OPEN C_INSERTED
+    FETCH NEXT FROM C_INSERTED
+      INTO
+        @PESCODE
+       ,@PESDESC
+       ,@PESMRC
+       ,@PESSYNCSTATUS
+       ,@PESSYNCMESSAGE
+       ,@PESSQLIDENTITY
+       ,@PESNOTUSED
+       
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+      SET @NCOUNT = 0
+      SELECT
+      @NCOUNT = COUNT(1)
+      FROM
+      R5PERSONNEL
+      WHERE
+      PER_CODE = @PESCODE;
+            
+      IF @NCOUNT > 0 
+      BEGIN
+        BEGIN TRY
+        
+          --BEGIN TRAN;
+          
+          SELECT
+          @NCOUNT1 = COUNT(1)
+          FROM
+          R5PERSONNEL
+          WHERE
+          PER_CODE = @PESCODE
+          AND
+          (PER_DESC <> @PESDESC or PER_MRC <> @PESMRC OR PER_NOTUSED <> @PESNOTUSED); 
+          
+          IF @NCOUNT1 > 0 
+          BEGIN
+            UPDATE
+              R5PERSONNEL
+            SET
+              PER_DESC = @PESDESC
+             ,PER_MRC  = @PESMRC
+             ,PER_NOTUSED = ISNULL(@PESNOTUSED,PER_NOTUSED)
+            WHERE
+              PER_CODE = @PESCODE   
+            
+            DELETE FROM
+              U5PERSONEL_SYNC
+            WHERE
+              PES_SQLIDENTITY = @PESSQLIDENTITY;
+          END 
+          --COMMIT TRAN;
+        END TRY
+        BEGIN CATCH
+          --ROLLBACK TRAN;
+          PRINT ERROR_MESSAGE()
+          UPDATE
+            U5PERSONEL_SYNC
+          SET
+            PES_SYNCMESSAGE = ERROR_MESSAGE()
+           ,PES_SYNCSTATUS  = 'E'
+          WHERE
+            PES_SQLIDENTITY = @PESSQLIDENTITY      
+        END CATCH
+      END
+      ELSE
+      BEGIN
+        INSERT INTO r5personnel(PER_CODE,
+                                  PER_DESC,
+                                  PER_MRC,
+                                  PER_TRADE,
+                                  PER_NOTUSED,
+                                  PER_ORG,
+                                  PER_CREATED)
+        VALUES(@PESCODE,
+               ISNULL (@PESDESC, '-'),
+               @PESMRC,
+               '*',
+               '-',
+               '*',
+               getdate ());
+        DELETE FROM
+          U5PERSONEL_SYNC
+        WHERE
+          PES_SQLIDENTITY = @PESSQLIDENTITY;       
+               
+      END
+             
+    FETCH NEXT FROM C_INSERTED
+      INTO
+        @PESCODE
+       ,@PESDESC
+       ,@PESMRC
+       ,@PESSYNCSTATUS
+       ,@PESSYNCMESSAGE
+       ,@PESSQLIDENTITY
+       ,@PESNOTUSED
+
+    END
+    CLOSE C_INSERTED
+    DEALLOCATE C_INSERTED
+  END
+
+GO

@@ -1,0 +1,15 @@
+
+V 1.8.04 version release note£º
+--------------------------------------------------
+1¡¢Fix following bug in JIRA£º
+£­ LRMEPMS-173
+£­ LRMEPMS-184
+£­ LRMEPMS-187
+£­ LRMEPMS-193
+£­ LRMEPMS-189
+£­ LRMEPMS-190
+£­ LRMEPMS-191
+£­ LRMEPMS-186
+£­ LRMEPMS-155
+£­ LRMEPMS-153
+

@@ -1,0 +1,228 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_DAILYEVENT]
+    @corp NVARCHAR(15),
+    @ouCode NVARCHAR(80),
+    @reqCode NVARCHAR(80),
+    @evtJobType NVARCHAR(4),
+    @evtStatus NVARCHAR(4),
+    @evtDesc NVARCHAR(30),
+    @reqStatus NVARCHAR(80),
+    @location NVARCHAR(30),
+    @department NVARCHAR(15),
+    @initialPerson NVARCHAR(15),
+    @initialPersonDesc NVARCHAR(30),
+    @responsible NVARCHAR(15),
+    @responsibleDesc NVARCHAR(30),
+    @onBehalfMark NVARCHAR(30),
+    @borrowType NVARCHAR(30),
+    @usage NVARCHAR(30),
+    @comments NVARCHAR(256)
+WITH EXEC AS CALLER
+AS
+/********************
+**function 创建日常工单
+**author JasonZhao
+**Date 2018-08-23
+** @corpnvarchar(30) ,@ouCodenvarchar(30) ,@reqCodenvarchar(30) ,
+** @reqStatusnvarchar(30) ,@locationnvarchar(30) ,@departmentnvarchar(30)
+**  ,@commentsnvarchar(30)
+*Date Updated: 10 Dec 2018
+*Updated By: Joey Wang
+*Remark: When @location = *, remove the check of obj_obtype
+********************/
+DECLARE @ncount BIGINT,
+        @nchk BIGINT,
+        @flag NVARCHAR(1) = 'S',
+        @locationOrg NVARCHAR(15),
+        @message NVARCHAR(2000),
+        @receiptNo NVARCHAR(30),
+        @OBJCODE NVARCHAR(30),
+        @OBJORG NVARCHAR(15),
+        @evt_udfchar16 NVARCHAR(15),
+        @sevtCode NVARCHAR(30),
+        @storeManager NVARCHAR(30);
+
+BEGIN
+    EXEC dbo.U5PRO_CHECK_PERSON @initialPerson, @initialPersonDesc;
+
+    EXEC dbo.U5PRO_CHECK_PERSON @responsible, @responsibleDesc;
+
+    SELECT @ncount = COUNT(1)
+    FROM R5OBJECTS
+    WHERE OBJ_CODE = @location
+          AND OBJ_OBTYPE = CASE WHEN OBJ_CODE = '*' THEN OBJ_OBTYPE ELSE --Added by Joey Wang on 10 Dec 2018
+                                                                        'L'
+                           END;
+
+    IF @ncount = 0
+    BEGIN
+        SELECT 'E' AS flag,
+               N'位置信息不存在' AS message,
+               '' param1;
+    END;
+
+    SELECT @locationOrg = OBJ_ORG
+    FROM R5OBJECTS
+    WHERE OBJ_CODE = @location
+          AND OBJ_OBTYPE = CASE WHEN OBJ_CODE = '*' THEN OBJ_OBTYPE ELSE --Added by Joey Wang on 10 Dec 2018
+                                                                        'L'
+                           END;
+
+    SET @ncount = 0;
+
+    /** remove check evt_udfchar01 20180907
+
+      SELECT @ncount = count (1)
+      FROM r5events
+      WHERE EVT_JOBTYPE = @evtJobtype AND EVT_UDFCHAR01 = @reqCode;
+   ***/
+    BEGIN TRY
+        IF @ncount = 0
+        BEGIN
+            ---根据Location 查找仓库及仓库负责人
+            SET @nchk = 0;
+
+            SELECT @nchk = COUNT(1)
+            FROM R5STORES
+            WHERE STR_NOTUSED = '-'
+                  AND STR_UDFCHAR01 = @location
+                  AND STR_CLASS = N'IT';
+
+
+            IF @nchk > 0
+            BEGIN
+                SELECT TOP 1
+                       @evt_udfchar16 = STR_CODE,
+                       @storeManager = STR_UDFCHAR02
+                FROM R5STORES
+                WHERE STR_NOTUSED = '-'
+                      AND STR_UDFCHAR01 = @location
+                      AND STR_CLASS = N'IT';
+            END;
+            ELSE
+            BEGIN
+                SELECT TOP 1
+                       @evt_udfchar16 = STR_CODE,
+                       @storeManager = STR_UDFCHAR02
+                FROM R5STORES
+                WHERE STR_NOTUSED = '-'
+                      AND STR_UDFCHAR01 = @location;
+            END;
+
+            --AND str_org = @corp;
+
+            EXEC P_GETNEXTID 'S5EVENT', @receiptNo OUTPUT;
+
+            INSERT INTO R5EVENTS (EVT_CODE,
+                                  EVT_DESC,
+                                  EVT_TYPE,
+                                  EVT_RTYPE,
+                                  EVT_OBTYPE,
+                                  EVT_OBRTYPE,
+                                  EVT_STATUS,
+                                  EVT_RSTATUS,
+                                  EVT_ENTEREDBY,
+                                  EVT_JOBTYPE,
+                                  EVT_UDFCHAR16,
+                                  EVT_ORG,
+                                  EVT_UDFCHAR01,
+                                  EVT_UDFCHAR03,
+                                  EVT_UDFCHAR08,
+                                  EVT_OBJECT,
+                                  EVT_OBJECT_ORG,
+                                  EVT_MRC,
+                                  EVT_ORIGIN,
+                                  EVT_UDFCHAR05,
+                                  EVT_UDFCHKBOX01,
+                                  EVT_UDFCHAR12,
+                                  EVT_UDFCHAR07,
+                                  EVT_WORKADDRESS,
+                                  EVT_DATE,
+                                  EVT_DURATION)
+            VALUES (@receiptNo,
+                    @evtDesc,
+                    'JOB',
+                    'JOB',
+                    'L',
+                    'L',
+                    @evtStatus,
+                    'R',
+                    @storeManager,
+                    @evtJobType,
+                    @evt_udfchar16,
+                    @corp,
+                    @reqCode,
+                    @reqStatus,
+                    @ouCode,
+                    @location,
+                    @locationOrg,
+                    ISNULL(@department,
+                           '*'),
+                    @initialPerson,
+                    @responsible,
+                    @onBehalfMark,
+                    @borrowType,
+                    @usage,
+                    @comments,
+                    GETDATE(),
+                    1);
+
+            IF @evtJobType = '60GH'
+            BEGIN
+                --ADD BY Jason 2018-Sup-13  归还标准取组织级别的安装参数
+                DECLARE @TASKCODE NVARCHAR(MAX);
+                SELECT @TASKCODE = OPA_DESC
+                FROM R5ORGANIZATIONOPTIONS
+                WHERE OPA_CODE = '@GHBZ'
+                      AND OPA_ORG = @corp;
+
+                INSERT INTO R5ACTIVITIES --创建标准验收项目1- 检查表
+                (ACT_TASK,
+                 ACT_TRADE,
+                 ACT_ACT,
+                 ACT_EVENT,
+                 ACT_MRC,
+                 ACT_START,
+                 ACT_QTY,
+                 ACT_EST,
+                 ACT_REM,
+                 ACT_TIME,
+                 ACT_PERSONS,
+                 ACT_DURATION,
+                 ACT_NOTE,
+                 ACT_TASKREV)
+                VALUES (@TASKCODE, '*', 10, @receiptNo, '*', GETDATE(), 1, 1, 1, 1, 1, 1, N'归还标准', 0);
+            END;
+        END;
+        ELSE
+        BEGIN
+            SELECT @receiptNo = EVT_CODE
+            FROM R5EVENTS
+            WHERE EVT_UDFCHAR01 = @reqCode
+                  AND EVT_JOBTYPE = @evtJobType;
+
+            UPDATE R5EVENTS
+            SET EVT_UDFCHAR03 = @reqStatus,
+                EVT_WORKADDRESS = @comments
+            WHERE EVT_UDFCHAR01 = @reqCode
+                  AND EVT_JOBTYPE = @evtJobType;
+        END;
+    END TRY
+    BEGIN CATCH
+        ---便于Mybatis获取结果。
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+    SELECT @flag AS flag,
+           @message AS message,
+           @receiptNo param1;
+END;
+
+GO

@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+      http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+    <!--default-autowire="byName" default-lazy-init="false"-->
+
+
+    <bean id="sendMail" class="com.eam.task.quartz.SendMailJob"/>
+    <bean id="sendMailDetail"
+          class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="group" value="sendMailDetailGroup"/>
+        <property name="name" value="sendMailDetailName"/>
+        <!--false表示等上一个任务执行完后再开启新的任务 -->
+        <property name="concurrent" value="false"/>
+        <property name="targetObject" ref="sendMail"/>
+        <property name="targetMethod" value="execute"/>
+    </bean>
+    <bean id="sendMailTrigger"
+          class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="name" value="sendMailTriggerName"/>
+        <property name="group" value="sendMailTriggerGroup"/>
+        <property name="jobDetail" ref="sendMailDetail"/>
+        <property name="cronExpression" value="0 0/1 * * * ?"/>
+    </bean>
+
+
+    <bean id="sendWorkFlow" class="com.eam.task.quartz.SendWorkFlowJob"/>
+    <bean id="sendWorkFlowDetail"
+          class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="group" value="sendWorkFlowDetailGroup"/>
+        <property name="name" value="sendWorkFlowDetailName"/>
+        <!--false表示等上一个任务执行完后再开启新的任务 -->
+        <property name="concurrent" value="false"/>
+        <property name="targetObject" ref="sendWorkFlow"/>
+        <property name="targetMethod" value="execute"/>
+    </bean>
+    <bean id="sendWorkFlowTrigger"
+          class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="name" value="sendWorkFlowTriggerName"/>
+        <property name="group" value="sendWorkFlowTriggerGroup"/>
+        <property name="jobDetail" ref="sendWorkFlowDetail"/>
+        <property name="cronExpression" value="10 0/1 * * * ?"/>
+    </bean>
+
+
+    <bean id="sendAssetChange" class="com.eam.task.quartz.SendAssetStatusChangeJob"/>
+    <bean id="sendAssetChangeDetail"
+          class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="group" value="sendAssetChangeDetailGroup"/>
+        <property name="name" value="sendAssetChangeDetailName"/>
+        <!--false表示等上一个任务执行完后再开启新的任务 -->
+        <property name="concurrent" value="false"/>
+        <property name="targetObject" ref="sendAssetChange"/>
+        <property name="targetMethod" value="execute"/>
+    </bean>
+    <bean id="sendAssetChangeTrigger"
+          class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="name" value="sendAssetChangeTriggerName"/>
+        <property name="group" value="sendAssetChangeTriggerGroup"/>
+        <property name="jobDetail" ref="sendAssetChangeDetail"/>
+        <property name="cronExpression" value="20 0/1 * * * ?"/>
+    </bean>
+
+
+    <bean id="sendDelaySyncFA" class="com.eam.task.quartz.DelaySyncFAJob"/>
+    <bean id="sendDelaySyncFADetail"
+          class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="group" value="sendDelaySyncFAGroup"/>
+        <property name="name" value="sendDelaySyncFAName"/>
+        <!--false表示等上一个任务执行完后再开启新的任务 -->
+        <property name="concurrent" value="false"/>
+        <property name="targetObject" ref="sendDelaySyncFA"/>
+        <property name="targetMethod" value="execute"/>
+    </bean>
+    <bean id="sendDelaySyncFATrigger"
+          class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+        <property name="name" value="sendDelaySyncFAName"/>
+        <property name="group" value="sendDelaySyncFAGroup"/>
+        <property name="jobDetail" ref="sendDelaySyncFADetail"/>
+        <property name="cronExpression" value="0 0 4/4 * * ? "/>
+    </bean>
+
+    <!-- <value>0 0/5 14,18 * * ?</value> -->
+    <!-- 调度工厂 -->
+    <bean id="scheduler" lazy-init="false" autowire="no"
+          class="org.springframework.scheduling.quartz.SchedulerFactoryBean">
+        <property name="triggers">
+            <list>
+                <ref bean="sendMailTrigger"/>
+                <ref bean="sendWorkFlowTrigger"/>
+                <ref bean="sendAssetChangeTrigger"></ref>
+<!--                <ref bean="sendDelaySyncFATrigger"/>-->
+            </list>
+        </property>
+    </bean>
+</beans>

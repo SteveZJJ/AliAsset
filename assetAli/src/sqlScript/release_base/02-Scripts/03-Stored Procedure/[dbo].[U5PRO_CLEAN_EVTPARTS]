@@ -1,0 +1,23 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CLEAN_EVTPARTS]
+   @evtCode NVARCHAR (30)
+   WITH
+   EXEC AS CALLER
+AS
+BEGIN
+   DELETE FROM U5PARTREQUIREMENT1
+    WHERE wup_wo = @evtCode;
+
+   DELETE FROM R5MATLPARTS
+    WHERE mlp_matlist IN (SELECT act_matlist
+                            FROM R5ACTIVITIES
+                           WHERE act_event = @evtCode);
+END
+
+GO

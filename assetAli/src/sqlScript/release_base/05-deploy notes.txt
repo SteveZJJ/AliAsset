@@ -1,0 +1,25 @@
+
+
+[pms V1.8.04] deploy notes��
+-------------------------------------------------------------------------------------
+1、Please first carry out the script(/02-Scripts/02-Procedures_1.8.04.sql) to 
+   update all the procedures.
+
+2、Please refers to the </00-data/03-PMS_ERRORTEXT.xls> document to add the following 
+   errortext(PMS#0033/PMS#0034/PMS#0035).
+
+3、Please refers to the </00-data/01-PMS_FUNCTIONS.xls> document to update the report
+   url.
+
+4、In order to disable the standard Infor EAM log out page,please following below steps to do it:
+   1) find the directory where IBM http server installs. 
+   For example: /u01/IBM/HTTPServer/ 
+
+   2) override the dstmUtility.js onto the '${ibmhttpserver_path}/web.war/includes/javascripts' directory.
+   For example: /u01/IBM/HTTPServer/web.war/includes/javascripts
+
+5、Login the PMS application via the following url: 
+   PMS Login URL: http://ServerAddress:PortNo/pms/login.jsp?ID=XXXXX&TENANT=XXXXX
+
+   For example: http://192.168.1.169:9080/pms/login.jsp?ID=XZW3%2BUz4Ojc%3D&TENANT=PMSDEV1
+   

@@ -1,0 +1,364 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE TRIGGER [dbo].[U5PREINS_UPDATEMRC] ON [dbo].[U5MRC_SYNC]
+AFTER INSERT
+AS
+
+DECLARE @MRSCODE  NVARCHAR(50)
+DECLARE @MRSDESC  NVARCHAR(80)
+DECLARE @MRSCLASS   NVARCHAR(50)
+DECLARE @MRSSYNCSTATUS  NVARCHAR(8)
+DECLARE @MRSSYNCMESSAGE  NVARCHAR(2000)
+DECLARE @MRSSQLIDENTITY  INT
+DECLARE @MRSFULLDESC  NVARCHAR(80)
+DECLARE @MRSPARENT  NVARCHAR(80)
+DECLARE @MRSNOTUSED  NVARCHAR(8)
+DECLARE @MRSDESCEN  NVARCHAR(80)
+
+DECLARE @NCOUNT INT
+DECLARE @NCOUNT1 INT
+
+IF @@ROWCOUNT > 0
+  BEGIN
+    SET NOCOUNT ON
+ 
+    DECLARE
+      C_INSERTED CURSOR LOCAL FOR
+        SELECT
+         i.MRS_CODE,
+         i.MRS_DESC,
+         i.MRS_CLASS,
+         i.MRS_SYNCSTATUS,
+         i.MRS_SYNCMESSAGE,
+         i.MRS_SQLIDENTITY,
+         i.MRS_FULLDESC,
+         i.MRS_PARENT,
+         i.MRS_NOTUSED,
+         i.MRS_DESCEN
+        FROM
+          INSERTED i
+
+    OPEN C_INSERTED
+    FETCH NEXT FROM C_INSERTED
+      INTO
+        @MRSCODE
+       ,@MRSDESC
+       ,@MRSCLASS
+       ,@MRSSYNCSTATUS
+       ,@MRSSYNCMESSAGE
+       ,@MRSSQLIDENTITY
+       ,@MRSFULLDESC
+       ,@MRSPARENT
+       ,@MRSNOTUSED
+       ,@MRSDESCEN
+       
+
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+      SET @NCOUNT = 0
+      SELECT
+      @NCOUNT = COUNT(1)
+      FROM
+      R5MRCS
+      WHERE
+      MRC_CODE = @MRSCODE;
+            
+      IF @NCOUNT > 0 
+      BEGIN
+--        BEGIN TRY
+        
+--          BEGIN TRAN;
+        
+          SELECT
+          @NCOUNT1 = COUNT(1)
+          FROM
+          R5MRCS A, R5PROPERTYVALUES B
+          WHERE
+          A.MRC_CODE = B.PRV_CODE
+          AND
+          B.PRV_PROPERTY = N'MRCDESC'
+          AND
+          A.MRC_CODE = @MRSCODE
+          AND
+          (A.MRC_DESC <> @MRSDESC or B.PRV_VALUE <> @MRSFULLDESC); 
+          
+          SELECT 
+            @NCOUNT1 = @NCOUNT1 + COUNT(1)
+          FROM 
+            R5DESCRIPTIONS
+          WHERE
+            DES_CODE = @MRSCODE
+          AND
+            DES_LANG = N'EN'
+          AND
+            DES_RENTITY = N'MRC'
+          AND
+            DES_TEXT <> @MRSDESCEN
+            
+          SELECT
+            @NCOUNT1 = @NCOUNT1 + COUNT(1)
+          FROM
+            R5ADDRESS
+          WHERE
+            ADR_RENTITY = N'MRC'
+          AND
+            ADR_CODE = @MRSCODE
+          AND
+            ((ADR_RTYPE = N'M' AND ADR_TEXT <> @MRSDESCEN) OR (ADR_RTYPE = N'D' AND ADR_TEXT <> @MRSDESC))
+          
+          SELECT
+            @NCOUNT1 = @NCOUNT1 + COUNT(1)
+          FROM
+            R5OBJECTS
+          WHERE
+            OBJ_OBTYPE = 'ZZJG'
+          AND 
+            OBJ_CODE = @MRSCODE
+          AND
+            (OBJ_DESC <> @MRSDESC OR OBJ_NOTUSED <> @MRSNOTUSED OR OBJ_MRC <> @MRSCODE)
+          
+          SELECT
+            @NCOUNT1 = @NCOUNT1 + COUNT(1)
+          FROM
+            R5STRUCTURES
+          WHERE
+            STC_CHILD = @MRSCODE
+          AND
+            STC_CHILDTYPE = N'ZZJG'
+          AND
+            STC_PARENT <> @MRSPARENT
+        
+
+          IF @NCOUNT1 > 0 
+          BEGIN
+            UPDATE
+              R5MRCS
+            SET
+              MRC_DESC = @MRSDESC
+             --,MRC_CLASS  = @MRSCLASS
+             ,MRC_NOTUSED = @MRSNOTUSED
+            WHERE
+              MRC_CODE = @MRSCODE   
+              
+            UPDATE
+              R5PROPERTYVALUES
+            SET
+              PRV_VALUE = @MRSFULLDESC
+            WHERE
+              PRV_PROPERTY = 'MRCDESC' AND
+              PRV_CODE = @MRSCODE   
+              
+            UPDATE R5DESCRIPTIONS SET
+              DES_TEXT = @MRSDESCEN -- nvarchar(80)
+            WHERE DES_RENTITY = N'MRC' -- nvarchar(4)
+              AND DES_RTYPE = N'*' -- nvarchar(4)
+              AND DES_CODE = @MRSCODE -- nvarchar(100)
+              AND DES_LANG = N'EN' -- nvarchar(2)
+            
+            UPDATE R5ADDRESS SET
+               ADR_TEXT = @MRSDESCEN -- nvarchar(2000)   
+            WHERE ADR_RENTITY = N'MRC' -- nvarchar(4)
+              AND ADR_CODE = @MRSCODE -- nvarchar(50)
+              AND ADR_RTYPE = N'M' -- nvarchar(4)
+              
+            UPDATE R5ADDRESS SET
+               ADR_TEXT = @MRSDESC -- nvarchar(2000)   
+            WHERE ADR_RENTITY = N'MRC' -- nvarchar(4)
+              AND ADR_CODE = @MRSCODE -- nvarchar(50)
+              AND ADR_RTYPE = N'D' -- nvarchar(4)
+              
+            UPDATE R5OBJECTS SET 
+               OBJ_DESC = @MRSDESC
+              ,OBJ_NOTUSED = @MRSNOTUSED
+              ,OBJ_MRC = @MRSCODE
+            WHERE OBJ_OBTYPE = 'ZZJG'
+              AND OBJ_CODE = @MRSCODE
+              
+            UPDATE R5STRUCTURES SET
+               STC_PARENT = @MRSPARENT -- nvarchar(30)
+            WHERE STC_CHILD = @MRSCODE -- nvarchar(30)  
+            
+            DELETE FROM
+              U5MRC_SYNC
+            WHERE
+              MRS_SQLIDENTITY = @MRSSQLIDENTITY;
+          END  
+--          COMMIT TRAN;
+--        END TRY
+--        BEGIN CATCH
+--          ROLLBACK TRAN;
+--          PRINT ERROR_MESSAGE()
+--          UPDATE
+--            U5MRC_SYNC
+--          SET
+--            MRS_SYNCMESSAGE = ERROR_MESSAGE()
+--           ,MRS_SYNCSTATUS  = 'E'
+--          WHERE
+--            MRS_SQLIDENTITY = @MRSSQLIDENTITY      
+--        END CATCH
+      END
+      ELSE
+      BEGIN
+        INSERT INTO R5MRCS (
+           MRC_CODE
+          ,MRC_DESC
+          --,MRC_CLASS
+          ,MRC_ORG
+          --,MRC_CLASS_ORG
+          ,MRC_NOTUSED
+        ) VALUES (
+           @MRSCODE -- MRC_CODE - nvarchar(15)
+          ,@MRSDESC -- MRC_DESC - nvarchar(80)
+          --,@MRSCLASS
+          ,'*'
+          --,'*'
+          ,@MRSNOTUSED
+        ) 
+        INSERT INTO R5PROPERTYVALUES (
+           PRV_PROPERTY
+          ,PRV_RENTITY
+          ,PRV_CLASS
+          ,PRV_CODE
+          ,PRV_SEQNO
+          ,PRV_VALUE
+          ,PRV_NVALUE
+          ,PRV_DVALUE
+          ,PRV_CLASS_ORG
+          ,PRV_CREATED
+          ,PRV_NOTUSED
+        ) VALUES (
+           'MRCDESC' -- PRV_PROPERTY - nvarchar(8)
+          ,'MRC' -- PRV_RENTITY - nvarchar(4)
+          ,'*' -- PRV_CLASS - nvarchar(8)
+          ,@MRSCODE -- PRV_CODE - nvarchar(100)
+          ,1 -- PRV_SEQNO - numeric(38, 0)
+          ,@MRSFULLDESC -- PRV_VALUE - nvarchar(80)
+          ,NULL -- PRV_NVALUE - numeric(24, 6)
+          ,NULL -- PRV_DVALUE - datetime
+          ,'*' -- PRV_CLASS_ORG - nvarchar(15)
+          ,GETDATE() -- PRV_CREATED - datetime
+          ,'-' -- PRV_NOTUSED - nvarchar(1)
+        )
+        
+        --插入description
+        UPDATE R5DESCRIPTIONS SET
+          DES_TEXT = @MRSDESCEN
+        WHERE
+          DES_ENTITY = N'MRC'
+        AND
+          DES_RENTITY = N'MRC'
+        AND
+          DES_TYPE = N'*'
+        AND
+          DES_RTYPE = N'*'
+        AND
+          DES_CODE = @MRSCODE
+        AND
+          DES_LANG = 'EN'
+        
+        --插入Address
+        INSERT INTO R5ADDRESS (
+           ADR_RENTITY
+          ,ADR_CODE
+          ,ADR_RTYPE
+          ,ADR_TEXT
+        ) VALUES (
+           N'MRC' -- ADR_RENTITY - nvarchar(4)
+          ,@MRSCODE -- ADR_CODE - nvarchar(50)
+          ,N'M' -- ADR_RTYPE - nvarchar(4)
+          ,@MRSDESCEN -- ADR_TEXT - nvarchar(2000)
+        )
+        INSERT INTO R5ADDRESS (
+           ADR_RENTITY
+          ,ADR_CODE
+          ,ADR_RTYPE
+          ,ADR_TEXT
+        ) VALUES (
+           N'MRC' -- ADR_RENTITY - nvarchar(4)
+          ,@MRSCODE -- ADR_CODE - nvarchar(50)
+          ,N'D' -- ADR_RTYPE - nvarchar(4)
+          ,@MRSDESC -- ADR_TEXT - nvarchar(2000)
+        )
+        --插入OBJECTS
+        INSERT INTO R5OBJECTS(
+                    OBJ_CODE
+                   ,OBJ_OBTYPE
+                   ,OBJ_NOTUSED
+                   ,OBJ_DESC
+                   ,OBJ_STATUS
+                   ,OBJ_MRC
+                   ,OBJ_ORG
+                   ,OBJ_GROUP
+                   ,OBJ_USER)
+                VALUES
+                  (
+                    @MRSCODE
+                   ,'ZZJG'
+                   ,@MRSNOTUSED
+                   ,@MRSDESC
+                   ,'I'
+                   ,@MRSCODE
+                   ,'*'
+                   ,'R5'
+                   ,'R5')
+        --插入STRUCTURES
+        INSERT INTO R5STRUCTURES (
+           STC_CHILDTYPE
+          ,STC_CHILDRTYPE
+          ,STC_CHILD
+          ,STC_PARENTTYPE
+          ,STC_PARENTRTYPE
+          ,STC_PARENT
+          ,STC_ROLLDOWN
+          ,STC_ROLLUP
+          ,STC_EQUIVALENT
+          ,STC_DOWNTIME
+          ,STC_CHILD_ORG
+          ,STC_PARENT_ORG
+        ) VALUES (
+           'ZZJG' -- STC_CHILDTYPE - nvarchar(4)
+          ,'S' -- STC_CHILDRTYPE - nvarchar(4)
+          ,@MRSCODE -- STC_CHILD - nvarchar(30)
+          ,'ZZJG' -- STC_PARENTTYPE - nvarchar(4)
+          ,'S' -- STC_PARENTRTYPE - nvarchar(4)
+          ,@MRSPARENT -- STC_PARENT - nvarchar(30)
+          ,'-' -- STC_ROLLDOWN - nvarchar(1)
+          ,'-' -- STC_ROLLUP - nvarchar(1)
+          ,'-' -- STC_EQUIVALENT - nvarchar(1)
+          ,'-' -- STC_DOWNTIME - nvarchar(1)
+          ,N'*' -- STC_CHILD_ORG - nvarchar(15)
+          ,N'*' -- STC_PARENT_ORG - nvarchar(15)
+        )
+        
+        
+        DELETE FROM
+          U5MRC_SYNC
+        WHERE
+          MRS_SQLIDENTITY = @MRSSQLIDENTITY;       
+               
+      END
+             
+    FETCH NEXT FROM C_INSERTED
+      INTO
+        @MRSCODE
+       ,@MRSDESC
+       ,@MRSCLASS
+       ,@MRSSYNCSTATUS
+       ,@MRSSYNCMESSAGE
+       ,@MRSSQLIDENTITY
+       ,@MRSFULLDESC
+       ,@MRSPARENT
+       ,@MRSNOTUSED
+       ,@MRSDESCEN
+
+    END
+    CLOSE C_INSERTED
+    DEALLOCATE C_INSERTED
+  END
+
+GO

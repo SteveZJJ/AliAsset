@@ -1,0 +1,422 @@
+资产报废，处置相关接口详细设计
+
+一、 报废申请
+	提交报废申请生成申请单，及更新申请单状态
+	URL：http://100.69.200.73:9090/alieam/api/scrapApply
+	实体类： @Data
+            public class ScrapOrDisposeMessage {
+                private String corp;//组织  evt_org
+                private String actionType;
+                //状态  I-新建插入，UH 更新单据头基本信息 UL 更新报废处置清单
+                private String ouCode;//所属OU  evt_udfchar08
+                private String department;//归口部门
+                private String personCode;//申请人
+                private String personName;//申请人姓名
+                private String evtCode;//资产中台创建的单据号，在更新时需传入
+                private String comments;//申请原因
+                private String central; //归口管理
+                private List <ScrapLine> item;//报废、处置单详情
+
+                private String evtJobType;//
+                private String evtStatus;//
+                private String evtDesc;//
+                private String language;//
+
+                private String scrapType;//报废类型
+                private String disposeType;//处置类型
+                private List <Attachment> attachments;//文档清单
+                private String detailType;//子项类型
+            }
+
+
+			/**************************************
+             *@ClassName ScrapLine
+             *@Description 报废单，处置单详情行
+             *@Author Steve
+             *@Date 2019年4月17日19:55:27
+             *@Version 1.0
+             **************************************/
+            @Data
+            public class ScrapLine {
+            	private String assetCode;//归还、续借 填写大阿里编号
+            }
+
+
+            /**************************************
+             *@ClassName Attechment
+             *@Description   //文件附件
+             *@Author jason
+             *@Date 2018/8/25 - 12:04
+             *@Version 1.0
+             **************************************/
+            @Data
+            public class Attachment {
+                private String line;//附件序号
+                private String name;//附件名称
+                private String url;//附件Url路径
+                private String eventCode;
+            }
+
+
+    请求示例:
+        a. 创建单据：
+            *** 创建时不需传入evtCode
+            *** 创建时可不传入evtStatus
+            {
+                "corp": "ANTO",
+                "actionType": "I",
+                "ouCode": "A04",
+                "department": "蚂x金x-x力x源x20349",
+                "personCode": "188316",
+                "personName": "xxxx",
+                "item": [
+                    {
+                        "assetCode": "TDN000000004345"
+                    },
+                    {
+                        "assetCode": "TDN000000004346"
+                    }
+                ],
+                "comment": "资产报废申请xxxxxxx",
+                "scrapType":"SCRAP001"
+            }
+
+        b. 更新单据：
+            *** 更新时必须传入evtCode
+            *** 更新时必须传入evtStatus
+            {
+            	"evtCode":"244034",
+                "corp": "ANTO",
+                "actionType": "UH",
+                "ouCode": "A04",
+                "department": "20349",
+                "personCode": "188316",
+                "personName": "xxxx",
+                "item": [
+                    {
+                        "assetCode": "TDN000000004345"
+                    },
+                    {
+                        "assetCode": "TDN000000004346"
+                    }
+                ],
+                "comments": "资产报废申请xxxxxxx",
+                "scrapType":"SCRAP001"
+            }
+
+
+	返回结果:
+		插入成功 {"flag":"S","message":null,"data":{"eventCode":"244034"}}
+		更新成功 {"flag":"S","message":null,"data":{}}
+		失败：{"flag":"E","message":"error","data":{}}
+		资产校验失败:
+            {
+                "flag": "E",
+                "code": "V",
+                "message": "Asset Verify Failed. Please check fail asset list.",
+                "data": {
+                    "failNum": 2,
+                    "totalNum": 2,
+                    "errMsg": "Asset Verify Failed. Please check fail asset list.",
+                    "failList": [
+                        {
+                            "assetCode": "TDN000000004345",
+                            "resultMsg": "Asset unavailable since it being used to process In Asset Acceptance Process!"
+                        },
+                        {
+                            "assetCode": "TDN000000004346",
+                            "resultMsg": "Asset unavailable since it being used to process In Asset Acceptance Process!"
+                        }
+                    ],
+                    "passNum": 0
+                }
+            }
+二、 处置申请
+    提交已报废设备生成处置单，更新处置单状态
+    URL：http://100.69.200.73:9090/alieam/api/disposeApply
+
+    实体类： 同报废申请
+        @Data
+        public class ScrapOrDisposeMessage {
+            private String corp;//组织  evt_org
+            private String actionType;
+            //状态  I-新建插入，UH 更新单据头基本信息 UL 更新报废处置清单
+            private String ouCode;//所属OU  evt_udfchar08
+            private String department;//归口部门
+            private String personCode;//申请人
+            private String personName;//申请人姓名
+            private String evtCode;//资产中台创建的单据号，在更新时需传入
+            private String comments;//申请原因
+            private String central; //归口管理
+            private List <ScrapLine> item;//报废、处置单详情
+
+            private String evtJobType;//
+            private String evtStatus;//
+            private String evtDesc;//
+            private String language;//
+
+            private String scrapType;//报废类型
+            private String disposeType;//处置类型
+            private List <Attachment> attachments;//文档清单
+            private String detailType;//子项类型
+        }
+
+
+        /**************************************
+         *@ClassName ScrapLine
+         *@Description 报废单，处置单详情行
+         *@Author Steve
+         *@Date 2019年4月17日19:55:27
+         *@Version 1.0
+         **************************************/
+        @Data
+        public class ScrapLine {
+            private String assetCode;//归还、续借 填写大阿里编号
+        }
+
+
+        /**************************************
+         *@ClassName Attechment
+         *@Description   //文件附件
+         *@Author jason
+         *@Date 2018/8/25 - 12:04
+         *@Version 1.0
+         **************************************/
+        @Data
+        public class Attachment {
+            private String line;//附件序号
+            private String name;//附件名称
+            private String url;//附件Url路径
+            private String eventCode;
+        }
+
+
+三、 获取报废类型列表
+    URL: http://100.69.200.73:9090/alieam/api/getScrapTypes
+    入参: language 语言标识
+    返回示例:
+        {
+            "flag": "S",
+            "code": null,
+            "message": null,
+            "data": [
+                {
+                    "code": "BF001",
+                    "value": "正常报废"
+                }
+            ]
+        }
+四、 获取处置类型列表
+    URL: http://100.69.200.73:9090/alieam/api/getDisposeTypes
+    入参: language 语言标识
+    返回示例:
+        {
+            "flag": "S",
+            "code": null,
+            "message": null,
+            "data": [
+                {
+                    "code": "CZ001",
+                    "value": "Sale"
+                }
+            ]
+        }
+
+五、 查看报废单：
+    URL: http://100.69.200.73:9090/alieam/api/queryScrapEvent
+    入参: language 语言标识
+         evtCode  报废单号
+    返回示例:
+        {
+            "flag": "S",
+            "code": null,
+            "message": null,
+            "data": {
+                "corp": "ANTO",
+                "actionType": null,
+                "ouCode": "A04",
+                "department": "20349",
+                "personCode": "188316",
+                "personName": null,
+                "evtCode": "244034",
+                "comments": "资产报废申请xxxxxxx",
+                "central": null,
+                "item": [
+                    {
+                        "assetCode": "TDN000000004345",
+                        "assetDesc": "鱼缸",
+                        "initDate": null,
+                        "ifScrap": null
+                    },
+                    {
+                        "assetCode": "TDN000000004346",
+                        "assetDesc": "鱼缸",
+                        "initDate": null,
+                        "ifScrap": null
+                    }
+                ],
+                "evtJobType": "70BF",
+                "evtStatus": "TS10",
+                "evtDesc": "xxxx报废申请",
+                "language": null,
+                "scrapType": "SCRAP001",
+                "scrapTypeDesc": null,
+                "disposeType": null,
+                "disposeTypeDesc": null,
+                "attachments": null,
+                "detailType": null,
+                "dueDate": "2019-04-19 17:47:04.4",
+                "corpDesc": "蚂蚁海外",
+                "departmentDesc": "AxtxFxnxnxixl-HxmxnxRxsxuxcx xexaxtxext",
+                "statusDesc": "Under Approval",
+                "jobTypeDesc": "Withdraw"
+            }
+        }
+
+六、 查看处置单：
+    URL: http://100.69.200.73:9090/alieam/api/queryDisposeEvent
+    入参: language 语言标识
+         evtCode  处置单号
+    返回示例:
+        {
+            "flag": "S",
+            "code": null,
+            "message": null,
+            "data": {
+                "corp": "ANTO",
+                "actionType": null,
+                "ouCode": "A04",
+                "department": "20349",
+                "personCode": "188316",
+                "personName": null,
+                "evtCode": "244037",
+                "comments": "资产处置申请xxxxxxx",
+                "central": null,
+                "item": [
+                    {
+                        "assetCode": "TDN000000004345",
+                        "assetDesc": "鱼缸",
+                        "initDate": null,
+                        "ifScrap": null
+                    },
+                    {
+                        "assetCode": "TDN000000004346",
+                        "assetDesc": "鱼缸",
+                        "initDate": null,
+                        "ifScrap": null
+                    }
+                ],
+                "evtJobType": "110CZ",
+                "evtStatus": "TS10",
+                "evtDesc": "xxxx处置申请",
+                "language": null,
+                "scrapType": null,
+                "scrapTypeDesc": null,
+                "disposeType": "CZ001",
+                "disposeTypeDesc": "Sale",
+                "attachments": null,
+                "detailType": null,
+                "dueDate": "2019-04-19 17:47:04.4",
+                "corpDesc": "蚂蚁海外",
+                "departmentDesc": "AxtxFxnxnxixl-HxmxnxRxsxuxcx xexaxtxext",
+                "statusDesc": "Under Approval",
+                "jobTypeDesc": "Disposition"
+            }
+        }
+
+
+ 七、 批量导入并校验资产编号
+    通用接口，用于批量导入并校验资产是否可以用于流程。
+    URL: http://100.69.200.73:9090/alieam/api/checkObjectList
+    传入实体:
+        @Data
+        public class CheckProcessTDNCodes {
+            private ArrayList<String> TDNCodes; //大阿里编号List
+            private String process; //用于流程
+            private String language; //语言标识
+            private String workNo; //操作员工
+            private int start; //分页起始
+            private int limit; //分页结束
+        }
+
+    入参示例：
+        {
+            "corp": "ALIO",
+            "process": "70BF",
+            "language": "EN",
+            "workNo": "168886",
+            "start": 0,
+            "limit":20,
+            "TDNCodes":[
+            	"TDN000000307124",
+            	"TDN000000309478",
+            	"TDN000000307627"
+            ]
+        }
+    返回示例:
+        {
+            "flag": "S",
+            "code": null,
+            "message": null,
+            "data": {
+                "failNum": 3,
+                "totalNum": 4,
+                "assetList": [
+                    {
+                        "assetCode": "TDN000000307124",
+                        "serialNo": null,
+                        "assetName": "Laptop",
+                        "featureDesc": "华硕—?",
+                        "ownerDesc": "牛x旭(自x)",
+                        "ownerNo": "168886",
+                        "fixAssetNo": "A50010299065110",
+                        "sendTime": "2018-12-14 00:00:00",
+                        "usedTime": "4",
+                        "usage": "U01",
+                        "usageDesc": "Self-Used-Daily Office",
+                        "assetTypeDesc": "-",
+                        "instanceId": null,
+                        "brand": null,
+                        "asset": null,
+                        "configChange": null,
+                        "depNo": null,
+                        "depName": null,
+                        "acceptDesc": null,
+                        "locationCode": null,
+                        "locationDesc": null,
+                        "locationNote": null,
+                        "model": null,
+                        "userNo": "168886",
+                        "userDesc": "牛x旭(自x)",
+                        "orientation": null,
+                        "orientationDesc": null,
+                        "originalConfig": null,
+                        "ouCode": "R26",
+                        "partCode": "C0101",
+                        "partDesc": "Laptop",
+                        "poNumber": null,
+                        "acceptNumber": null,
+                        "assetStatus": null,
+                        "storeCode": null,
+                        "storeDesc": null,
+                        "supplierName": null,
+                        "manageType": "IT",
+                        "state": "",
+                        "borrowStartDate": null,
+                        "borrowEndDate": null,
+                        "updatedConfig": null,
+                        "corp": null,
+                        "eamTaskId": "",
+                        "reBorrowCount": "0",
+                        "borrowType": null
+                    }
+                ],
+                "passNum": 1
+            }
+        }
+    报错类别:
+        1. xxxx名下没有查询到该资产'
+        2. 资产不可操作，该资产处于xxxx流程中
+        3. 该资产处于xxxx状态中!不可用于xxxx流程！
+        4. Insert Data Error: The Asset Codes cannot be inserted into Database.
+

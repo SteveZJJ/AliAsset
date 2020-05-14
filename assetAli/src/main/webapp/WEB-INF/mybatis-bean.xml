@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans-4.1.xsd">
+    <bean id="baseMapper" class="org.mybatis.spring.mapper.MapperFactoryBean"
+          abstract="true" lazy-init="true">
+        <property name="sqlSessionFactory" ref="sqlSessionFactory"/>
+    </bean>
+    <bean id="demoService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.DemoMapper"/>
+    </bean>
+    <bean id="receiptService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.ReceiptMapper"/>
+    </bean>
+    <bean id="queryCodeDescService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.QueryCodeDescMapper"/>
+    </bean>
+    <bean id="pickupReturnService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.PickupReturnMapper"/>
+    </bean>
+    <bean id="jobService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.JobMapper"/>
+    </bean>
+    <bean id="dataSyncService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.DataSyncMapper"/>
+    </bean>
+    <bean id="scrapDisposeService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.ScrapDisposeMapper"/>
+    </bean>
+    <bean id="transferAllocateService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.TransferAllocateMapper"/>
+    </bean>
+    <bean id="inventoryService" parent="baseMapper">
+        <property name="mapperInterface" value="com.eam.mybatis.dao.InventoryMapper"/>
+    </bean>
+    <import resource="applicationContext.xml"/>
+    <import resource="quartz.xml"/>
+</beans>

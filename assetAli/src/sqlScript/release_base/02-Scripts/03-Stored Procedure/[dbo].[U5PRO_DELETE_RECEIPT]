@@ -1,0 +1,110 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_DELETE_RECEIPT]
+  @receiptNo VARCHAR(80)
+  WITH
+  EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+DECLARE @flag   VARCHAR(1);
+DECLARE @message   VARCHAR(200);
+DECLARE @assetCode   VARCHAR(80);
+
+BEGIN
+  SET @flag    = N'S';
+  SET @message = N'Success';
+
+  BEGIN TRY
+    SELECT
+    @ncount = count(1)
+    FROM
+    r5events
+    WHERE
+    evt_code = @receiptNo;
+
+    IF @ncount < 1
+      BEGIN
+        SELECT
+        @flag    = N'E';
+        SELECT
+        @message = N'Receipt does not exist';
+      END
+    ELSE
+      BEGIN
+        DECLARE
+          assetCursor CURSOR LOCAL FOR
+            SELECT
+              evt_object
+            FROM
+              r5events
+            WHERE
+              evt_parent = @receiptNo;
+              
+        
+
+        ----Delete activities
+        DELETE FROM
+          R5ACTCHECKLISTS
+        WHERE
+          ACK_EVENT = @receiptNo;
+
+        DELETE FROM
+          R5ACTIVITIES
+        WHERE
+          ACT_EVENT = @receiptNo;
+
+
+
+        BEGIN
+          OPEN assetCursor
+        FETCH NEXT FROM assetCursor
+            INTO
+              @assetCode
+
+          WHILE @@FETCH_STATUS = 0
+          BEGIN
+            DELETE FROM
+              r5events
+            WHERE
+              EVT_PARENT = @receiptNo
+            AND
+              EVT_OBJECT = @assetCode; --删除子工单
+            DELETE FROM
+              r5objects --删除子工单对应的设备
+            WHERE
+              OBJ_CODE = @assetCode --and OBJ_STATUS = 'C01'
+              AND
+              OBJ_OBTYPE = 'A'
+
+            FETCH NEXT FROM assetCursor
+              INTO
+                @assetCode
+          END
+        END
+
+        CLOSE assetCursor
+        DEALLOCATE assetCursor
+
+        DELETE FROM
+          r5events
+        WHERE
+          EVT_CODE = @receiptNo; --删除工单
+      END
+  END TRY
+  BEGIN CATCH
+    SELECT
+    @message = ERROR_MESSAGE() + N'Failed to delete'
+   ,@flag    = N'E';
+  END CATCH
+
+  SELECT
+    @flag AS flag
+   ,@message AS message;
+END
+
+GO

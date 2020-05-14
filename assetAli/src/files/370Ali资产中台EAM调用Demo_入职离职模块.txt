@@ -1,0 +1,86 @@
+————————————————————————————————————————————
+/createOrUpdatePickupList 创建和更新入职领用单
+Post:
+http://100.69.200.73:9090/alieam/api/createOrUpdatePickupList
+body
+{
+"corp":"ALIO",
+"actionType":"UL",
+"ouCode":"A50",
+"location":"1",
+"department":"*",
+"personCode":"JZHAO",
+"personName":"JasonZhao",
+"dueDate":"2018-08-23",
+"eventCode":null,
+"reqCode":"领用单11111",
+"reqStatus":"状态啦",
+"comments":"入职领用",
+"item":[{"reqLine":"10","assetCategory":"C0101","qty":1,"normalModel":"normalModel1","specification":"配置信息11"},{"reqLine":"20","assetCategory":"C0102","qty":2,"normalModel":"normalModel12","specification":"配置信息323"}]
+} 
+返回结果:
+插入成功 {"flag":"S","message":null,"data":{"eventCode":"10518"}}
+更新成功 {"flag":"S","message":null,"data":{}}
+失败：{"flag":"E","message":"error","data":{}}
+
+各字段定义如下：
+	private String corp;//组织  evt_org
+	private String actionType;//状态  I-新建插入，UH 更新单据头基本信息 UL 更新领用清单
+	private String ouCode;//所属OU  evt_udfchar08
+	private String location;//入职地点  evt_object
+	private String department;//入职部门
+	private String personCode;//入职人
+	private String personName;//入职人姓名
+	private String dueDate;//入职日期
+	private String reqCode;//人力系统入职单
+    private String eventCode ;//资产中台创建的单据号，在更新时需传入
+	private String reqStatus;//员工入职单状态
+	private String comments;//申请原因
+	private List <PickupLine> item;//领用单详情
+	//---------以下是领用单详情所需要的-----------------
+	private String reqLine;//领用单清单行号 MLP_LINE，WUP_LINE
+	private String specification;//配置信息 WUP_SPECIFICATION
+	private String normalModel;//日常型号 WUP_NORMALMOD
+	private String assetCategory;//WUP_PART \MLP_PART等
+	private String qty;//数量  MLP_QTY
+————————————————————————————————————————————
+createOrUpdateLeaveReturn--创建更新离职单信息：
+POST:
+http://100.69.200.73:9090/alieam/api/createOrUpdateLeaveReturn
+{
+"corp":"ALIO",
+"actionType":"I",
+"ouCode":"A50",
+"location":"1",
+"department":"*",
+"personCode":"76534",
+"personName":"JasonZhao",
+"dueDate":"2018-08-23",
+"reqCode":"离职单test",
+"reqStatus":"ssssdsa",
+"comments":"离职归还"
+}
+返回结果:
+插入成功 {"flag":"S","message":null,"data":{"eventCode":"10533"}}
+更新成功 {"flag":"S","message":null,"data":{}}
+失败：{"flag":"E","message":"error","data":{}}
+各字段定义如下：
+	private String corp;//组织  evt_org
+	private String actionType;//状态  I-新建插入，更新U
+	private String ouCode;//所属OU  evt_udfchar08
+	private String location;//入职地点  evt_object
+	private String department;//入职部门\离职部门
+	private String personCode;//入职人\离职人
+	private String personName;//入职人姓名\离职人姓名
+	private String dueDate;//入职日期\离职归还日期
+	private String reqCode;//人力系统入职单\离职单
+	private String evtCode;//资产中台创建的单据号，在更新时需传入
+	private String reqStatus;//员工入职单状态
+	private String comments;//申请原因
+————————————————————————————————————————————
+registerExpressNo  更新快递单号：
+get http://localhost:9090/alieam/api/registerExpressNo?eventCode=10533&expressNo=快递单号
+
+eventCode  eam任务单号
+expressNo  快递单号
+

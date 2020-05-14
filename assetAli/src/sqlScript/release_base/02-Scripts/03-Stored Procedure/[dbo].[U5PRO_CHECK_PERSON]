@@ -1,0 +1,42 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CHECK_PERSON]
+@perCode nvarchar(15), @perDesc nvarchar(80)
+WITH EXEC AS CALLER
+/*****
+Create by Jason.Zhao
+2018-Sep-07
+检查员工是否存在，不存在则创建
+******/
+AS
+  declare @ncount int
+begin
+   SELECT @ncount = count (1)
+   FROM R5PERSONNEL
+   WHERE PER_CODE = @perCode;
+
+   IF @ncount = 0
+      BEGIN
+         INSERT INTO r5personnel (PER_CODE,
+                                  PER_DESC,
+                                  PER_MRC,
+                                  PER_TRADE,
+                                  PER_NOTUSED,
+                                  PER_ORG,
+                                  PER_CREATED)
+         VALUES (@perCode,
+                 ISNULL (@perDesc, '-'),
+                 '*',
+                 '*',
+                 '-',
+                 '*',
+                 getdate ());
+      END;
+end
+
+GO

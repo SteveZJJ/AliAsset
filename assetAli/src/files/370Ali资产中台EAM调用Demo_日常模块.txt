@@ -1,0 +1,368 @@
+————————————————————————————————————————————
+getDrilldownLocation---获取分级地点
+ locationClass    值列表，地址级别
+ 						CITY-城市；
+                        PARK-园区；
+                        SPOT-领用地点
+ search  模糊搜索
+ parentCode 父位置
+GET: http://100.69.200.73:9090/alieam/api/getDrilldownLocation?corp=ALIO&search=&language=ZH&locationClass=CITY&parentCode=
+result:
+{"flag":"S","message":null,"data":[{"locationCode":"8621","locationDesc":"上海","locationClass":"CITY"},{"locationCode":"86571","locationDesc":"杭州","locationClass":"CITY"}]}
+————————————————————————————————————————————
+getBorrowType 获取借用类型
+GET: http://100.69.200.73:9090/alieam/api/getBorrowType?corp=ALIO&search=&language=ZH
+result: 
+{"flag":"S","message":null,"data":[{"borrowType":"01","borrowDesc":"借用类型1","borrowDuration":"30"},{"borrowType":"02","borrowDesc":"借用类型2","borrowDuration":"60"}]}
+————————————————————————————————————————————
+getAvailableAssets  获取可用设备列表
+(入参出参一致)relatedUserModels  获取流程的常用型号接口
+GET: http://100.69.200.73:9090/alieam/api/getAvailableAssets?corp=HEMA&location=TEST&assetCategory=C0101&process=借用&model=Mac Pro 15in&language=ZH
+result:
+{"flag":"S","message":null,"data":[{"model":"Mac Pro 15in","modelName":"MacBook Pro 15寸","sequence":"1","maxQty":null,"assetCategory":"C0101","assetCategoryName":"笔记本电脑-C0101","modelCategory":"电脑","configuration":"15in, cup 2.0GHZ, 内存8G","qty":"1","origPicture1":null,"origPicture2":null,"compPicture1":null,"compPicture2":null}]}
+各字段定义如下：
+入参
+            corp--组织,
+            location--领用地点
+            assetCategory 资产类目
+            model 常用型号
+            process :所属流程 --自用，借用，公用
+出参
+	private String model;//常用型号ID
+	private String modelName;//常用型号描述
+	private String modelClass;//型号大类
+	private String sequence;//排序
+	private String maxQty;//最大领用数量
+	private String assetCategory;//资产类目
+	private String assetCategoryName;//资产类目描述
+	private String modelCategory;//所属类别
+	private String configuration;//配置信息
+	private String qty;//可用数量
+	private String origPicture1;//原图1
+	private String origPicture2;//原图2
+	private String compPicture1;//缩略图1
+	private String compPicture2;//缩略图2
+
+————————————————————————————————————————————
+getOwnedAssets 获取名下资产(员工侧资产检索)
+Get:http://100.69.200.73:9090/alieam/api/getOwnedAssets?corp=ALIO&person=76534&search=&language=ZH&assetCode=100909&fixAssetNo=1111&usage=&sn=
+result:
+{"flag":"S","message":null,"data":[{"model":"Mac Pro 15in","modelName":"MacBook Pro 15寸","sequence":"1","maxQty":null,"assetCategory":"C0101","assetCategoryName":"笔记本电脑-C0101","modelCategory":"电脑","configuration":"15in, cup 2.0GHZ, 内存8G","qty":null,"origPicture1":null,"origPicture2":null,"compPicture1":null,"compPicture2":null,"assetCode":"100909","fixedAssetNo":"1111","assetName":"轿车-布加迪威龙","brandCode":"5312174235451392","brandName":"苹果（APPLE）","modelCode":"5312174235844608","sn":"SN0001","acceptDate":"2018-08-23","usedTime":"0","usage":null,"borrowType":"01","borrowTypeName":"借用类型1","assetStatus":"在用-正常"}]}
+入参：
+    corp 组织   非空
+    person 使用人工号  非空
+    search 查询(大阿里编号，固定资产编号，SN 模糊搜索)
+    language 语言
+    assetCode 大阿里编号
+    fixAssetNo 固定资产编号
+    sn   SN序列号
+    usage  使用说明(用途)
+出参：沿用了接口getAvailableAssets 的返回
+public class PickupOrReturnAsset {
+	private String model;//常用型号ID
+	private String modelName;//常用型号描述
+	private String modelClass;//型号大类
+	private String sequence;//排序
+	private String maxQty;//最大领用数量
+	private String assetCategory;//资产类目
+	private String assetCategoryName;//资产类目描述
+	private String modelCategory;//所属类别
+	private String configuration;//配置信息
+	private String qty;//可用数量
+	private String origPicture1;//原图1
+	private String origPicture2;//原图2
+	private String compPicture1;//缩略图1
+	private String compPicture2;//缩略图2
+	private String assetCode;//大阿里编号 OBJ_CODE
+	private String fixedAssetNo;//固定资产编号 OBJ_UDFCHAR01
+	private String assetName;//名称    OBJ_CODE描述
+	private String brandCode;//品牌代码 OBJ_UDFCHARO5
+	private String brandName;//品牌描述 OBJ_UDFCHAR05 描述
+	private String modelCode;//型号代码 OBJ_MANUFACTMODEL
+	private String sn;//SN序列号 OBJ_SERIALNO
+	private String acceptDate;//obj_comiss
+	private String usedTime;// 上次借用或领用的发放日期到现在的月份
+	private String usage;// 使用说明 OBJ_UDFCHAR07
+	private String borrowType;// 借用类型
+	private String borrowTypeName;// 借用类型描述
+	private String assetStatus;//状态
+}
+
+————————————————————————————————————————————
+————————————————————————————————————————————
+————————————————————————————————————————————
+routineReturn 创建和更新日常归还单
+Post:
+http://100.69.200.73:9090/alieam/api/routineReturn
+body:
+{
+"corp":"ALIO",
+"actionType":"I",
+"ouCode":"A50",
+"location":"1",
+"department":"*",
+"reqCode":"日常归还单0001",
+"reqStatus":"状态啦",
+"comments":"日常归还",
+"initialPerson":"JZHAO",
+"initialPersonName":"JZHAO",
+"responsible":"JZHAO",
+"responsibleName":"JZHAO",
+"item":[{"assetCode":"10005","duration":30 }],
+"attachments":[]
+}
+返回结果:
+成功 {"flag":"S","message":null,"data":{"eventCode":"10518"}}
+失败：{"flag":"S","message":"error","data":{}}
+borrowDurationExtension   日常续借
+http://100.69.200.73:9090/alieam/api/borrowDurationExtension
+body
+{
+"corp":"ALIO",
+"actionType":"I",
+"ouCode":"A50",
+"location":"1",
+"department":"*",
+"reqCode":"日常续借单0002",
+"reqStatus":"状态啦",
+"comments":"日常续借",
+"initialPerson":"JZHAO",
+"initialPersonName":"JZHAO",
+"responsible":"JZHAO",
+"responsibleName":"JZHAO",
+"onBehalfMark":"Y", 
+"usage":"来测试续借点东西",
+"item":[{"assetCode":"10005","duration":30 }],
+"attachments":[]
+}
+返回结果:
+成功 {"flag":"S","message":null,"data":{"eventCode":"10561”}}
+失败：{"flag":"S","message":"error","data":{}}
+routinePickup —日常领用、借用单
+http://100.69.200.73:9090/alieam/api/routinePickup
+{
+"corp":"ALIO",
+"actionType":"I",
+"ouCode":"A50",
+"location":"1",
+"department":"*",
+"reqCode":"日常领用单0003",
+"reqStatus":"状态啦",
+"comments":"日常领用、借用",
+"initialPerson":"JZHAO",
+"initialPersonName":"JZHAO",
+"responsible":"JZHAO",
+"responsibleName":"JZHAO",
+"onBehalfMark":"Y",
+"borrowType":"01",
+"usage":"来测试借点东西",
+"item":[{"assetCategory":"C0101","qty":1,"normalModel":"normalModel1","specification":"配置信息1","duration":30 },{"assetCategory":"C0102","qty":2,"normalModel":"normalModel12","specification":"配置信息"}],
+"attachments":[]
+}
+返回结果:
+成功 {"flag":"S","message":null,"data":{"eventCode":"10561”}}
+失败：{"flag":"S","message":"error","data":{}}
+
+各字段定义如下：
+public class PickupOrReturnDaily {
+	private String corp;//组织  evt_org
+	private String actionType;
+	//状态  I-新建插入，UH 更新单据头基本信息 UL 更新领用清单
+	private String reqCode;//借用单\归还单
+    private String ouCode;//OU
+	private String reqStatus;//员工借用单\归还单  状态，人力系统
+	private String evtCode;//资产中台创建的单据号，在更新时需传入
+	private String location;//借用、归还地点
+	private String department;//借用、归还部门
+	private String initialPerson;//借用、归还   申请人
+	private String initialPersonName;//借用、归还   申请人姓名
+	private String responsible;//借用人，归还人
+	private String responsibleName;//借用人姓名 归还人姓名，如无人的姓名，缺省为'-'
+	private String onBehalfMark;//代他人领用、借用标识  Y-代他人领用借用。N-本人借用领用
+	private String borrowType;//借用类型。归还时为 空
+	private String usage;//用途(使用说明) 归还时为 空
+	private String comments;//申请原因
+	
+	private List <PickupLine> item;//借用、归还 清单
+	private List <Attachment> attachments;//文档清单
+}
+public class PickupLine {
+	private String reqLine;//借用、归还  行号
+	private String specification;//借用 配置信息
+	private String normalModel;//借用   日常型号
+	private String assetCategory;//借用 资产类目
+	private String qty;//借用数量  MLP_QTY
+	private String duration;//借用时长
+	private String assetCode;//归还、续借 填写大阿里编号
+}
+public class Attachment {
+	private String line;//附件序号
+	private String name;//附件名称
+	private String url;//附件Url路径
+	
+}
+
+————————————————————————————————————————————
+
+查看任务详情
+http://100.69.200.73:9090/alieam/api/getTaskDetails?eventCode=11131&language=ZH&assetMark=Y
+
+result
+{
+    "flag": "S",
+    "message": null,
+    "data": {
+        "taskType": "手工验收",
+        "reqCode": null,
+        "eventCode": "11131",
+        "corp": "ALIO",
+        "location": "865710102",
+        "locationDesc": "杭州滨江2#楼",
+        "department": "* - DEFAULT / ALL DEPARTMENTS",
+        "initialPerson": "144959",
+        "initialPersonName": "ZOEZ",
+        "responsible": null,
+        "responsibleName": null,
+        "reqDate": "2018-09-11 11:41:59.663",
+        "onBehalfMark": "N",
+        "borrowType": null,
+        "usage": "usage1",
+        "poNumber": "PO35153966",
+        "acceptNumber": "location Detail",
+        "expressNumber": null,
+        "wareHouse": "S01D - 杭州仓库",
+        "comments": null,
+        "property": null,
+        "inStore": "Y",
+        "jobType": "100YS",
+        "attachment": [
+            {
+                "line": "1",
+                "name": "JasonFile",
+                "url": "www.baidu.com",
+                "eventCode": "11131"
+            },
+            {
+                "line": "2",
+                "name": "JasonFile2",
+                "url": "www.baidu.com",
+                "eventCode": "11131"
+            }
+        ],
+        "item": [
+            {
+                "partCode": "S0000258",
+                "partDesc": "笔记本电脑",
+                "planQty": "10",
+                "actQty": "0.000000",
+                "assets": [
+                    {
+                        "assetCode": "TDN000000000345",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000346",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000347",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000348",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000349",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000350",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000351",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000352",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000353",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    },
+                    {
+                        "assetCode": "TDN000000000354",
+                        "categoryCode": "2010100",
+                        "categoryName": "计算机设备",
+                        "assetDesc": "笔记本电脑",
+                        "duration": null,
+                        "transDate": null,
+                        "dueDate": null,
+                        "receiptNo": null
+                    }
+                ]
+            }
+        ],
+        "ou": "??????"
+    }
+}
+
+
+————————————————————————————————————————————
+

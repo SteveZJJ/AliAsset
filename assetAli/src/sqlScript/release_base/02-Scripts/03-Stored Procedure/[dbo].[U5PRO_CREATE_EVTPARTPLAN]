@@ -1,0 +1,224 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_EVTPARTPLAN]
+    @evtCode NVARCHAR(30),
+    @nMaxmatlline NUMERIC(8, 0),
+    @partCode NVARCHAR(30),
+    @nomalModel NVARCHAR(256),
+    @specification NVARCHAR(256),
+    @qty NUMERIC(8, 0),
+    @duration NUMERIC(8, 0)
+WITH EXEC AS CALLER
+AS
+/**Version 1.1
+function:向工单插入备件需求计划
+author:JasonZhao
+createdate:2018-Aug-22
+#{evtCode} ,#{reqLine} ,#{partCode} ,#{nomalModel} ,#{specification} ,#{qty}
+*Updated by Joey Wang on 23 Aug 2018
+*Remark: 
+   1) 增加向u5partrequirement1表写入常用型号中英文描述动作；
+   2）增加写入updatecout=0动作
+***/
+DECLARE @evtOrg NVARCHAR(15),     --组织
+        @evtObjects NVARCHAR(30), --领用地点
+        @vactCode NUMERIC(8, 0),  --工单作业号
+        @vMatList NVARCHAR(30),   --物料表编号
+        @Nextid BIGINT,
+        @store NVARCHAR(30),      ---仓库-根据领用地点获取
+        @ncount INT;
+
+BEGIN
+    SELECT @ncount = COUNT(1)
+    FROM U5FREQUENTMODELS
+    WHERE FMD_NAMEID = @nomalModel;
+    IF @ncount = 1
+    BEGIN
+        --   SELECT @partCode =  MDC_PART
+        --   FROM U5MODELCONFIGS
+        --   WHERE mdc_process = N'入职领用' AND
+        --   MDC_FMD_NAMEID=@nomalModel;
+
+        SELECT @partCode = FMD_PART_CODE
+        FROM U5FREQUENTMODELS
+        WHERE FMD_NAMEID = @nomalModel;
+    END;
+    SELECT @evtOrg = EVT_ORG,
+           @evtObjects = EVT_OBJECT
+    FROM R5EVENTS
+    WHERE EVT_CODE = @evtCode;
+
+    -----------------------------
+    SELECT @ncount = COUNT(1)
+    FROM R5ACTIVITIES
+    WHERE ACT_EVENT = @evtCode
+          AND ACT_PLANNINGLEVEL = 'TP';
+
+    SET @vactCode = 10;
+
+    IF @ncount = 0
+    BEGIN
+        INSERT INTO R5ACTIVITIES
+        (
+            ACT_TRADE,
+            ACT_ACT,
+            ACT_EVENT,
+            ACT_MRC,
+            ACT_START,
+            ACT_QTY,
+            ACT_EST,
+            ACT_REM,
+            ACT_TIME,
+            ACT_PERSONS,
+            ACT_DURATION,
+            ACT_HIRE,
+            ACT_FIXH,
+            ACT_MINHOURS,
+            ACT_SPECIAL,
+            ACT_PLANNINGLEVEL,
+            ACT_MATLREV
+        )
+        VALUES
+        ('*', @vactCode, @evtCode, '*', GETDATE(), 1, 1, 1, 1, 1, 1, '-', '-', '-', '-', 'TP', '0');
+    END;
+
+    -----------------------------
+    ---设置物料表编号
+    SELECT @vMatList = ISNULL(ACT_MATLIST, '-')
+    FROM R5ACTIVITIES
+    WHERE ACT_EVENT = @evtCode
+          AND ACT_ACT = @vactCode;
+
+    -----------------------------
+    IF @vMatList = '-'
+    BEGIN
+        ------插入物料表-------
+        EXEC P_GETNEXTID 'S5MATLISTS', @Nextid OUTPUT;
+        SELECT @vMatList = 'V-' + CAST(@Nextid AS NVARCHAR(30));
+
+        INSERT INTO R5MATLISTS
+        (
+            MTL_CODE,
+            MTL_DESC,
+            MTL_EVENT,
+            MTL_ACT,
+            MTL_REVRSTATUS,
+            MTL_REVSTATUS,
+            MTL_ORG
+        )
+        VALUES
+        (@vMatList, '-', @evtCode, @vactCode, 'A', 'A', @evtOrg);
+
+        /********更新工单活动********/
+        UPDATE R5ACTIVITIES
+        SET ACT_MATLIST = @vMatList,
+            ACT_MATLREV = 0
+        WHERE ACT_EVENT = @evtCode
+              AND ACT_ACT = @vactCode;
+    END;
+
+    -----------------------------
+    /*****获取备件行号是否存在****/
+    SELECT @ncount = COUNT(1)
+    FROM R5MATLPARTS
+    WHERE MLP_MATLIST = @vMatList
+          AND MLP_LINE = @nMaxmatlline;
+
+    -----------------------------
+    IF @ncount = 0
+    BEGIN
+        /********插入物料表的备件行******/
+        INSERT INTO R5MATLPARTS
+        (
+            MLP_MATLIST,
+            MLP_LINE,
+            MLP_PART,
+            MLP_QTY,
+            MLP_UOM,
+            MLP_MATLREV,
+            MLP_PART_ORG,
+            MLP_RESERV,
+            MLP_CRIT,
+            MLP_DIRECT
+        )
+        VALUES
+        (@vMatList, @nMaxmatlline, @partCode, @qty, 'EA', 0, '*', '-', '-', '-');
+    END;
+    ELSE
+    BEGIN
+        /************更新物料表的备件行*************/
+        UPDATE R5MATLPARTS
+        SET MLP_PART = @partCode,
+            MLP_QTY = @qty
+        WHERE MLP_MATLIST = @vMatList
+              AND MLP_LINE = @nMaxmatlline
+              AND (   MLP_PART <> @partCode
+                      OR MLP_QTY <> @qty);
+    END;
+
+    -----------------------------
+    /*****获取客户化表是否存在****/
+    SELECT @ncount = COUNT(1)
+    FROM U5PARTREQUIREMENT1
+    WHERE WUP_LINE = @nMaxmatlline
+          AND WUP_WO = @evtCode;
+
+    IF @ncount = 0
+    BEGIN
+        INSERT INTO U5PARTREQUIREMENT1
+        (
+            WUP_LINE,
+            WUP_WO,
+            WUP_NORMALMOD,
+            WUP_PART,
+            WUP_SPECIFICATION,
+            WUP_DURATION,
+            wup_moddesc,   --Added by Joey Wang on 23 Dec 2018
+            wup_moddescen, --Added by Joey Wang on 23 Dec 2018
+            CREATED,
+            CREATEDBY
+        )
+        SELECT @nMaxmatlline,
+               @evtCode,
+               @nomalModel,
+               @partCode,
+               @specification,
+               @duration,
+               DESCRIPTION, --Added by Joey Wang on 23 Dec 2018
+               FMD_NAME_EN, --Added by Joey Wang on 23 Dec 2018
+               GETDATE(),
+               'R5'
+        FROM dbo.U5FREQUENTMODELS
+        WHERE FMD_NAMEID = @nomalModel;
+    END;
+    ELSE
+    BEGIN
+        UPDATE U5PARTREQUIREMENT1
+        SET WUP_NORMALMOD = @nomalModel,
+            WUP_PART = @partCode,
+            WUP_SPECIFICATION = @specification,
+            WUP_DURATION = @duration,
+            UPDATED = GETDATE(),
+            wup_moddesc = (   SELECT DESCRIPTION --Added by Joey Wang on 23 Dec 2018
+                              FROM dbo.U5FREQUENTMODELS
+                              WHERE FMD_NAMEID = @nomalModel),
+            wup_moddescen = (   SELECT FMD_NAME_EN --Added by Joey Wang on 23 Dec 2018
+                                FROM dbo.U5FREQUENTMODELS
+                                WHERE FMD_NAMEID = @nomalModel)
+        WHERE WUP_LINE = @nMaxmatlline
+              AND WUP_WO = @evtCode;
+    END;
+    -----------------------------
+    --更新借用时长至工单
+    UPDATE R5EVENTS
+    SET EVT_UDFNUM01 = @duration
+    WHERE EVT_CODE = @evtCode;
+-----------------------------
+END;
+
+GO

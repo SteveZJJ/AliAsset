@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eam.mybatis.dao.InventoryMapper">
+
+    <resultMap type="com.eam.mybatis.model.AliResultProcedure"
+               id="resultCreatedInventorySeqMap">
+        <result column="flag" property="flag" javaType="String"
+                jdbcType="VARCHAR"/>
+        <result column="message" property="message" javaType="String"
+                jdbcType="VARCHAR"/>
+        <result column="code" property="code" javaType="String"
+                jdbcType="VARCHAR"/>
+        <result column="evtCode" property="param1" javaType="String"
+                jdbcType="VARCHAR"/>
+        <result column="num" property="param2" javaType="String"
+                jdbcType="VARCHAR"/>
+        <result column="param3" property="param3" javaType="String"
+                jdbcType="VARCHAR"/>
+        <result column="param4" property="param4" javaType="String"
+                jdbcType="VARCHAR"/>
+    </resultMap>
+
+
+
+    <!--  盘点单 2019年12月9日18:14:58  -->
+    <select id="createOrUpdateInventory" statementType="CALLABLE" parameterType="com.eam.mybatis.model.BatchReceiptHeader" resultMap="resultCreatedInventorySeqMap">
+        EXEC DBO.U5PRO_CREUPD_INVENTORYEVENT #{evtCode}, #{corp}, #{evtStatus}, #{creatorCode}, #{creatorName}, #{responseCode}, #{responseName},
+                                             #{inventoryType}, #{locationCode}, #{storeCode}, #{ownerShipCode}, #{objValue}, #{ifIncludeNonValue},#{comment},
+                                             #{acceptDateStart}, #{acceptDateEnd}, #{faDateStart}, #{faDateEnd},
+                                             #{ifExcelErr}, #{excelErrMsg}
+
+    </select>
+
+    <select id="queryInventoryAssetNum" parameterType="com.eam.mybatis.model.InventoryHeader" resultType="Integer">
+        SELECT COUNT(1)
+          FROM R5OBJECTS A
+         WHERE OBJ_OBRTYPE = N'A'
+           AND OBJ_ORG = #{corp}
+           AND OBJ_UDFCHAR08 = #{ownerShipCode}
+
+            <if test="objClass != null">
+            AND OBJ_CLASS in
+                <foreach collection="objClass" index="index" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </if>
+
+            <if test="objCate != null ">
+            AND OBJ_CATEGORY in
+                <foreach collection="objCate" index="index" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </if>
+
+            <if test="objStatus != null">
+            AND OBJ_STATUS IN
+                <foreach collection="objStatus" index="index" item="item" open="(" separator="," close=")">
+                    #{item}
+                </foreach>
+            </if>
+           AND ((OBJ_VALUE &gt; 0
+            <if test="objValue != null and objValue != ''">
+              and OBJ_VALUE &gt;= #{objValue}
+            </if>
+            )
+            <if test="ifIncludeNonValue == '+'">
+                OR OBJ_VALUE = 0
+            </if>
+            )
+           AND  ((#{inventoryType} = 'Store' and OBJ_STORE = #{storeCode}) or
+                 (#{inventoryType} ='Location' and (OBJ_UDFCHAR15 = #{locationCode} OR OBJ_UDFCHAR15 IN (SELECT child FROM dbo.F_U5GET_LOCATIONCHILDREN(#{locationCode})))
+                ))
+           <if test="acceptDateStart != null and acceptDateStart != ''">
+           and OBJ_CREATED &gt;= #{acceptDateStart}
+           </if>
+           <if test="acceptDateEnd != null and acceptDateEnd != ''">
+           and OBJ_CREATED &lt;= #{acceptDateEnd}
+           </if>
+           <if test="faDateStart != null and faDateStart != ''">
+                and OBJ_COMMISS &gt;= #{faDateStart}
+           </if>
+           <if test="faDateEnd != null and faDateEnd != ''">
+                and OBJ_COMMISS &lt;= #{faDateEnd}
+           </if>
+    </select>
+
+    <insert id="createInventoryParam" parameterType="com.eam.mybatis.model.InventoryHeader">
+        insert into U5INVENTORYPARAM (
+                       INP_EVTCODE
+                      ,INP_PARAMFIELD
+                      ,INP_PARAMVALUE
+                      ,INP_CORP
+                      ,INP_CREATED
+                    )
+                SELECT
+                     '' AS INP_EVTCODE
+                    ,NULL AS INP_PARAMFIELD
+                    ,NULL AS INP_PARAMVALUE
+                    ,NULL AS INP_CORP
+                    ,GETDATE() AS INP_CREATED
+        <if test="objClass != null">
+        UNION
+            <foreach collection="objClass" index="index" item="item" open=" " separator="UNION " close=" ">
+                SELECT
+                   #{evtCode} AS INP_EVTCODE
+                  ,'objClass' AS INP_PARAMFIELD
+                  ,#{item} AS INP_PARAMVALUE
+                  ,#{corp} AS INP_CORP
+                  ,GETDATE() AS INP_CREATED
+            </foreach>
+        </if>
+        <if test="objStatus != null">
+        UNION
+            <foreach collection="objStatus" index="index" item="item" open=" " separator="UNION " close=" ">
+                SELECT
+                #{evtCode} AS INP_EVTCODE
+                ,'objStatus' AS INP_PARAMFIELD
+                ,#{item} AS INP_PARAMVALUE
+                ,#{corp} AS INP_CORP
+                ,GETDATE() AS INP_CREATED
+            </foreach>
+        </if>
+        <if test="objCate != null">
+        UNION
+            <foreach collection="objCate" index="index" item="item" open=" " separator="UNION " close=" ">
+                SELECT
+                #{evtCode} AS INP_EVTCODE
+                ,'objCate' AS INP_PARAMFIELD
+                ,#{item} AS INP_PARAMVALUE
+                ,#{corp} AS INP_CORP
+                ,GETDATE() AS INP_CREATED
+            </foreach>
+        </if>
+    </insert>
+
+    <delete id="deleteInventoryParam" parameterType="com.eam.mybatis.model.InventoryHeader">
+        delete from U5INVENTORYPARAM where 1=2
+        <if test="objClass != null and objClass != ''">
+            or (INP_EVTCODE = #{evtCode} and INP_PARAMFIELD = 'objClass')
+        </if>
+        <if test="objStatus != null and objStatus != ''">
+            or (INP_EVTCODE = #{evtCode} and INP_PARAMFIELD = 'objStatus')
+        </if>
+        <if test="objCate != null and objCate != ''">
+            or (INP_EVTCODE = #{evtCode} and INP_PARAMFIELD = 'objCate')
+        </if>
+
+    </delete>
+
+    <select id="getInventoryStatus" parameterType="com.eam.mybatis.model.InventoryHeader" resultType="String">
+        SELECT EVT_STATUS FROM R5EVENTS WHERE EVT_CODE = #{evtCode} AND EVT_JOBTYPE = '90PD'
+    </select>
+
+    <select id="queryInventoryHeader" parameterType="map" resultType="com.eam.mybatis.model.InventoryHeader">
+        SELECT EVT_CODE AS evtCode
+              ,EVT_ORG AS corp
+              ,DBO.R5O7_O7GET_DESC (#{language},
+                                    'ORG',
+                                    EVT_ORG,
+                                    '*',
+                                    '*') AS corpDesc
+              ,EVT_DESC AS evtDesc
+              ,EVT_JOBTYPE AS evtJobtype
+              ,DBO.R5O7_O7GET_DESC (#{language},
+                                    'UCODE',
+                                    EVT_JOBTYPE,
+                                    'JBTP',
+                                    '') as evtJobtypeDesc
+              ,EVT_STATUS as evtStatus
+              ,DBO.R5O7_O7GET_DESC (#{language},
+                                    'UCODE',
+                                    EVT_STATUS,
+                                    'EVST',
+                                    '') as evtStatusDesc
+              ,EVT_ORIGIN as creatorCode
+              ,DBO.R5O7_O7GET_DESC (#{language},
+                                    'PERS',
+                                    EVT_ORIGIN,
+                                    '',
+                                    '') as creatorName
+              ,EVT_UDFCHAR12 as responseCode
+              ,DBO.R5O7_O7GET_DESC (#{language},
+                                    'PERS',
+                                    EVT_UDFCHAR12,
+                                    '',
+                                    '') as responseName
+              ,EVT_UDFCHAR05 as ownerShipCode
+              ,DBO.R5O7_O7GET_DESC(#{language},
+                                    'UDLV',
+                                    'udfchar08' + EVT_UDFCHAR05,
+                                    'OBJ',
+                                    'OBJ')
+              ,EVT_UDFCHAR09 as storeCode
+              ,EVT_UDFCHAR11 as storeDesc
+              ,EVT_UDFCHAR13 as inventoryType
+              ,EVT_UDFCHAR14 as locationCode
+              ,EVT_UDFCHAR16 as locationDesc
+              ,EVT_UDFNUM02 as objValue
+              ,EVT_UDFDATE02 as acceptDateStart
+              ,EVT_UDFDATE03 as acceptDateEnd
+              ,EVT_UDFCHKBOX02 as ifIncludeNonValue
+              ,EVT_UDFCHKBOX04 as ifExcelErr
+              ,EVT_FROMGEOREF as excelErrMsg
+              ,EVT_WORKADDRESS as comment
+              ,EVT_START AS inventoryStart
+              ,EVT_REPORTED AS inventoryReport
+              ,EVT_COMPLETED AS inventoryEnd
+          FROM R5EVENTS WHERE EVT_JOBTYPE = '90PD' AND EVT_CODE = #{evtCode}
+          <if test="corp != null and corp != ''">
+              AND EVT_ORG = #{corp}
+          </if>
+
+    </select>
+
+    <select id="queryEventFiles" parameterType="map" resultType="com.eam.mybatis.model.Attachment">
+        SELECT WOF_WO AS eventCode,
+               WOF_LINE AS line,
+               WOF_URL  AS url,
+               WOF_FILENAME AS name
+          FROM U5EVENTFILE
+         WHERE WOF_WO = #{evtCode} and WOF_BIDLINE IS NULL and wof_filetype is NULL
+    </select>
+
+    <select id="queryDataFile" parameterType="map" resultType="com.eam.mybatis.model.Attachment">
+        SELECT WOF_WO AS eventCode,
+               WOF_LINE AS line,
+               WOF_URL  AS url,
+               WOF_FILENAME AS name
+          FROM U5EVENTFILE
+         WHERE WOF_WO = #{evtCode} and WOF_BIDLINE IS NULL and wof_filetype = 'data'
+    </select>
+
+    <select id="getInventoryParam" parameterType="map" resultType="String">
+        SELECT INP_PARAMVALUE FROM U5INVENTORYPARAM WHERE INP_EVTCODE = #{evtCode} and INP_PARAMFIELD = #{paramField}
+        <if test="corp != null and corp != ''">
+            AND INP_CORP = #{corp}
+        </if>
+    </select>
+
+    <select id="queryInventoryRespList" parameterType="map" resultType="com.eam.mybatis.model.InventoryList">
+        SELECT DISTINCT INL_RESPNO AS respWorkNo,
+               DBO.R5O7_O7GET_DESC (#{language},
+                                    'PERS',
+                                    INL_RESPNO,
+                                    '',
+                                    '') as respWorkName
+         FROM U5INVENTORYLIST WHERE INL_EVTCODE = #{evtCode}
+        <if test="corp != null and corp != ''">
+            AND INL_CORP = #{corp}
+        </if>
+        <if test="workNo != null and workNo != ''">
+            AND INL_RESPNO = #{workNo}
+        </if>
+    </select>
+    <select id="queryInventoryLineList" parameterType="map" resultType="com.eam.mybatis.model.InventoryLine">
+        SELECT INL_SQLIDENTITY as id,
+               INL_EVTCODE as evtCode,
+               INL_CORP as corp,
+               INL_ASSETCODE as assetCode,
+               INL_ASSETDESC as assetDesc,
+               INL_ASSETSTATUS as assetStatus,
+               INL_BRANDCODE as brandCode,
+               INL_BRANDDESC as brandDesc,
+               INL_MODELCODE as modelCode,
+               INL_MODELDESC as modelDesc,
+               INL_SERIALNO as serialNo,
+               INL_RESPNO as respNo,
+               DBO.R5O7_O7GET_DESC (#{language},
+                                    'PERS',
+                                    INL_RESPNO,
+                                    '',
+                                    '') as respName,
+               INL_USERNO as userNo,
+               DBO.R5O7_O7GET_DESC (#{language},
+                                    'PERS',
+                                    INL_USERNO,
+                                    '',
+                                    '') as userName,
+               INL_LOCATION AS locationCode,
+               dbo.F_U5GET_OBJCENTRAL(INL_LOCATION,NULL) AS locationDesc,
+               INL_LOCATIONNOTE AS locationNote,
+               INL_STORECODE AS storeCode,
+               dbo.r5o7_o7get_desc(#{language}, 'STOR', INL_STORECODE, '', '') AS storeDesc,
+               INL_VALUE AS value,
+               INL_CURRENCY as currency,
+               INL_OUCODE as ouCode,
+               INL_FAASSETCODE as faAssetCode,
+               INL_ACCEPTDATE as acceptDate,
+               INL_CREATED as created,
+               INL_UPDATED as updated,
+               INL_IFFEEDBACK as ifFeedBack,
+               INL_FEEDBACKSTATUS as feedBackStatus,
+               ISNULL(INL_COMMENT,N'未盘点/无反馈') as comment,
+               INL_FEEDBACKWORKNO as feedBackWorkNo,
+               INL_FEEDBACKTYPE as feedBackType,
+               INL_FEEDBACKDATE as feedBackDate
+          FROM U5INVENTORYLIST WHERE INL_EVTCODE = #{evtCode}
+        <if test="corp != null and corp != ''">
+            AND INL_CORP = #{corp}
+        </if>
+        <if test="workNo != null and workNo != ''">
+            AND INL_RESPNO = #{workNo}
+        </if>
+        ORDER BY INL_ASSETCODE
+
+    </select>
+
+    <update id="updateInventoryItem" parameterType="com.eam.mybatis.model.InventoryLine">
+        UPDATE U5INVENTORYLIST
+           SET INL_IFFEEDBACK = 'Y'
+              ,INL_FEEDBACKSTATUS = (CASE
+                                     WHEN INL_FEEDBACKTYPE = 'EMAIL' AND #{feedBackStatus} = 'EXCEL'
+                                     THEN INL_FEEDBACKSTATUS
+                                     ELSE #{feedBackStatus}
+                                     END)
+              ,INL_COMMENT = (CASE
+                              WHEN INL_FEEDBACKTYPE = 'EMAIL' AND #{feedBackStatus} = 'EXCEL'
+                              THEN INL_COMMENT
+                              ELSE #{comment}
+                              END)
+              ,INL_FEEDBACKWORKNO = (CASE
+                                     WHEN INL_FEEDBACKTYPE = 'EMAIL' AND #{feedBackStatus} = 'EXCEL'
+                                     THEN INL_FEEDBACKWORKNO
+                                     ELSE #{feedBackWorkNo}
+                                     END)
+              ,INL_FEEDBACKTYPE = (CASE
+                                   WHEN INL_FEEDBACKTYPE = 'EMAIL' AND #{feedBackStatus} = 'EXCEL'
+                                   THEN INL_FEEDBACKTYPE
+                                   ELSE #{feedBackType}
+                                   END)
+              ,INL_FEEDBACKDATE = (CASE
+                                   WHEN INL_FEEDBACKTYPE = 'EMAIL' AND #{feedBackStatus} = 'EXCEL'
+                                   THEN INL_FEEDBACKDATE
+                                   ELSE GETDATE()
+                                   END)
+              ,INL_UPDATE = GETDATE()
+         WHERE (INL_EVTCODE = #{evtCode} AND INL_ASSETCODE = #{assetCode}
+        <if test="corp != null and corp != ''">
+            AND INL_CORP = #{corp}
+        </if>
+        )
+        <if test="id != null">
+            OR INL_SQLIDENTITY = #{id}
+        </if>
+    </update>
+
+
+
+</mapper>

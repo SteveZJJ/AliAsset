@@ -1,0 +1,89 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_UPDATE_RECEIPT]
+   @corp                       NVARCHAR (15),
+   @supplierCode               NVARCHAR (30),
+   @supplierName               NVARCHAR (80),
+   @ouCode                     NVARCHAR (80),
+   @poNumber                   NVARCHAR (80),
+   @acceptNumber               NVARCHAR (80),
+   @acceptanceLineId           NVARCHAR (80),
+   @acceptanceLineOfHEMA       NVARCHAR (80),
+   @unitPriceTaxIncluded       NVARCHAR (30),
+   @taxRate                    NVARCHAR (10),
+   @amountTaxIncluded          NVARCHAR (30),
+   @orderType                  NVARCHAR (30),
+   @workNo                     NVARCHAR (30),
+   @flag                       NVARCHAR (1) OUTPUT,
+   @message                    NVARCHAR (2000) OUTPUT,
+   @receiptNo                  NVARCHAR (30) OUTPUT
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+DECLARE @nchk   INT;
+
+BEGIN
+   SET @flag = 'S'
+
+   BEGIN TRY
+     
+    SELECT
+    @ncount = count(1)
+    FROM
+    r5events
+    WHERE
+    evt_code = @receiptNo 
+    OR
+    (evt_udfchar01 = @acceptanceLineId
+    AND
+    evt_udfchar11 = @acceptanceLineOfHEMA)
+    
+  
+    
+    if @ncount = 0 
+      SELECT @flag = 'E',
+             @message = N'验收单不存在';
+    ELSE
+      BEGIN
+      
+        UPDATE 
+          R5EVENTS
+        SET
+           EVT_ORIGIN = ISNULL(@workNo,EVT_ORIGIN)
+          ,EVT_UDFCHAR06 = ISNULL(@supplierCode,EVT_UDFCHAR06)
+          ,EVT_UDFCHAR08 = ISNULL(@ouCode,EVT_UDFCHAR08)
+          ,EVT_UDFCHAR10 = ISNULL(@poNumber,EVT_UDFCHAR10)
+          ,EVT_UDFCHAR11 = ISNULL(@acceptNumber,EVT_UDFCHAR11)
+          ,EVT_UDFCHAR02 = ISNULL(@acceptanceLineId,EVT_UDFCHAR02)
+          ,EVT_UDFCHAR22 = ISNULL(@acceptanceLineOfHEMA,EVT_UDFCHAR22)
+          ,EVT_UDFCHAR13 = ISNULL(@unitPriceTaxIncluded,EVT_UDFCHAR13)
+          ,EVT_UDFCHAR14 = ISNULL(@taxRate,EVT_UDFCHAR14)
+          ,EVT_UDFCHAR17 = ISNULL(@amountTaxIncluded,EVT_UDFCHAR17)
+          ,EVT_UDFCHAR04 = ISNULL(@orderType,EVT_UDFCHAR04)
+        WHERE 
+          (EVT_CODE = @receiptNo
+          OR
+          (evt_udfchar01 = @acceptanceLineId
+          AND
+          evt_udfchar11 = @acceptanceLineOfHEMA))
+        AND
+          EVT_JOBTYPE = '10YS'
+      END
+     
+   END TRY
+   BEGIN CATCH
+      SELECT @flag = 'E',
+             @message = ERROR_MESSAGE ();
+   END CATCH
+
+   ---便于Mybatis获取结果。
+   SELECT @flag AS flag, @message AS message, @receiptNo receiptNo;
+END;
+
+GO

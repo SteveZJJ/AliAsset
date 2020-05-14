@@ -1,0 +1,76 @@
+————————————————————————————————————————————————————————————————————————————————————————
+queryConfirmation 获取工作流详情
+Get:
+http://100.69.200.73:9090/alieam/api/queryConfirmation?language=ZH&EamTaskId=10828&eamTransactionId=896723&ownerNo=166959&confirmationType=Borrow
+
+返回结果:
+{
+    "flag": "S",
+    "message": null,
+    "data": {
+        "item": [
+            {
+                "assetCode": "TDN000000000238",
+                "fixedAssetNo": "A1293182732",
+                "assetName": "显示器",
+                "brandCode": "520780363136766524",
+                "brandName": "NEC",
+                "modelCode": "520780363136766514",
+                "modelName": "50寸"
+            },
+            {
+                "assetCode": "TDN000000000239",
+                "fixedAssetNo": null,
+                "assetName": "显示器",
+                "brandCode": null,
+                "brandName": null,
+                "modelCode": null,
+                "modelName": null
+            }
+        ],
+        "eamTaskId": "10828",
+        "eamTransactionId": "896723",
+        "ownerNo": "166959",
+        "confirmationType": "Borrow",
+        "confirmStatus": "TC",
+        "transDate": "2018-09-05 12:04:13.743",
+        "confirmDate": "2018-09-05 12:04:13.743",
+        "operator": "166959",
+        "instanceId": null,
+        "requestId": "11110000",
+		"confirmName":"待确认",
+        "language": null,
+        "transId": null
+    }
+}
+————————————————————————————————————————————————————————————————————————————————————————
+updateConfirmation 更新工作流状态
+GET:http://100.69.200.73:9090/alieam/api/updateConfirmation?language=ZH&eamTaskId=DemoTask&eamTransactionId=DemoTransId&confirmStatus=CD
+result:
+成功 {"flag":"S","message":null,"data":null}
+失败：{"flag":"E","message":"error","data":null}
+
+————————————————————————————————————————————————————————————————————————————————————————
+
+各字段定义如下：
+	List <TodoWorkFlowDetail> item;//资产详情
+	private String eamTaskId;//任务单号 evt_Code
+	private String eamTransactionId;//交易号  tra_Code
+	private String ownerNo;//被通知人 tra_pers
+	private String confirmationType;//通知类型 evt_jobtype evt_udfchar07
+	private String confirmStatus;//确认状态 tra_udfchar02  UCOD,PLST
+	private String confirmName;//确认状态
+	private String transDate;//领用时间 TRA_DATE
+	private String confirmDate;//确认时间 TRA_UDFDATE01
+	private String operator;//发放人 TRA_AUTH
+	private String instanceId;//AMP流程单号 tra_udfchar01
+	private String requestId;//AMP需求单号 evt_udfchar01
+	private String language;//语言
+	//---------以下是资产详情字段-----------------
+        private String assetCode;//大阿里编号
+        private String fixedAssetNo;//固定资产编码
+        private String assetName;//名称
+        private String brandCode;//品牌代码
+        private String brandName;//品牌名称
+		private String modelName;//型号
+————————————————————————————————————————————

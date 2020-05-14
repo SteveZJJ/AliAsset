@@ -1,0 +1,221 @@
+/****** Object: Procedure [dbo].[U5PRO_CREATE_MRC]   Script Date: 2019/2/22 15:57:04 ******/
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+CREATE PROCEDURE [dbo].[U5PRO_CREATE_MRC]
+@mrcCode nvarchar(15), @mrcDesc nvarchar(80), @mrcClass nvarchar(50), @mrcFullDesc nvarchar(80), @mrcParent nvarchar(80), @mrcDescEn  nvarchar(80), @mrcNotUsed  nvarchar(10)
+WITH EXEC AS CALLER
+/*****
+Create by Steve Zhang
+2019年1月26日03:12:07
+检查部门是否存在，不存在则创建
+******/
+AS
+  declare @ncount int
+  declare @ncount1 int
+  declare @flag nvarchar(2)
+  declare @message nvarchar(3000)
+begin
+   SELECT @ncount = count (1)
+   FROM R5MRCS
+   WHERE MRC_CODE = @mrcCode;
+
+   IF @ncount = 0
+      BEGIN
+        --插入MRC
+        INSERT INTO R5MRCS (
+           MRC_CODE
+          ,MRC_DESC
+          --,MRC_CLASS
+          ,MRC_ORG
+          --,MRC_CLASS_ORG
+          ,MRC_NOTUSED
+        ) VALUES (
+           @mrcCode -- MRC_CODE - nvarchar(15)
+          ,@mrcDesc -- MRC_DESC - nvarchar(80)
+          --,@mrcClass
+          ,'*'
+          --,'*'
+          ,@mrcNotUsed
+        ) 
+        
+        --插入description
+        UPDATE R5DESCRIPTIONS SET
+          DES_TEXT = @mrcDescEn
+        WHERE
+          DES_ENTITY = N'MRC'
+        AND
+          DES_RENTITY = N'MRC'
+        AND
+          DES_TYPE = N'*'
+        AND
+          DES_RTYPE = N'*'
+        AND
+          DES_CODE = @mrcCode
+        AND
+          DES_LANG = 'EN'
+        
+        --插入Address
+        INSERT INTO R5ADDRESS (
+           ADR_RENTITY
+          ,ADR_CODE
+          ,ADR_RTYPE
+          ,ADR_TEXT
+        ) VALUES (
+           N'MRC' -- ADR_RENTITY - nvarchar(4)
+          ,@mrcCode -- ADR_CODE - nvarchar(50)
+          ,N'M' -- ADR_RTYPE - nvarchar(4)
+          ,@mrcDescEn -- ADR_TEXT - nvarchar(2000)
+        )
+        INSERT INTO R5ADDRESS (
+           ADR_RENTITY
+          ,ADR_CODE
+          ,ADR_RTYPE
+          ,ADR_TEXT
+        ) VALUES (
+           N'MRC' -- ADR_RENTITY - nvarchar(4)
+          ,@mrcCode -- ADR_CODE - nvarchar(50)
+          ,N'D' -- ADR_RTYPE - nvarchar(4)
+          ,@mrcDesc -- ADR_TEXT - nvarchar(2000)
+        )
+        --插入OBJECTS
+        INSERT INTO R5OBJECTS(
+                    OBJ_CODE
+                   ,OBJ_OBTYPE
+                   ,OBJ_NOTUSED
+                   ,OBJ_DESC
+                   ,OBJ_STATUS
+                   ,OBJ_MRC
+                   ,OBJ_ORG
+                   ,OBJ_GROUP
+                   ,OBJ_USER)
+                VALUES
+                  (
+                    @mrcCode
+                   ,'ZZJG'
+                   ,@mrcNotUsed
+                   ,@mrcDesc
+                   ,'I'
+                   ,@mrcCode
+                   ,'*'
+                   ,'R5'
+                   ,'R5')
+        --插入STRUCTURES
+        INSERT INTO R5STRUCTURES (
+           STC_CHILDTYPE
+          ,STC_CHILDRTYPE
+          ,STC_CHILD
+          ,STC_PARENTTYPE
+          ,STC_PARENTRTYPE
+          ,STC_PARENT
+          ,STC_ROLLDOWN
+          ,STC_ROLLUP
+          ,STC_EQUIVALENT
+          ,STC_DOWNTIME
+          ,STC_CHILD_ORG
+          ,STC_PARENT_ORG
+        ) VALUES (
+           'ZZJG' -- STC_CHILDTYPE - nvarchar(4)
+          ,'S' -- STC_CHILDRTYPE - nvarchar(4)
+          ,@mrcCode -- STC_CHILD - nvarchar(30)
+          ,'ZZJG' -- STC_PARENTTYPE - nvarchar(4)
+          ,'S' -- STC_PARENTRTYPE - nvarchar(4)
+          ,@mrcParent -- STC_PARENT - nvarchar(30)
+          ,'-' -- STC_ROLLDOWN - nvarchar(1)
+          ,'-' -- STC_ROLLUP - nvarchar(1)
+          ,'-' -- STC_EQUIVALENT - nvarchar(1)
+          ,'-' -- STC_DOWNTIME - nvarchar(1)
+          ,N'*' -- STC_CHILD_ORG - nvarchar(15)
+          ,N'*' -- STC_PARENT_ORG - nvarchar(15)
+        )
+        INSERT INTO R5PROPERTYVALUES (
+           PRV_PROPERTY
+          ,PRV_RENTITY
+          ,PRV_CLASS
+          ,PRV_CODE
+          ,PRV_SEQNO
+          ,PRV_VALUE
+          ,PRV_NVALUE
+          ,PRV_DVALUE
+          ,PRV_CLASS_ORG
+          ,PRV_CREATED
+          ,PRV_NOTUSED
+        ) VALUES (
+           'MRCDESC' -- PRV_PROPERTY - nvarchar(8)
+          ,'MRC' -- PRV_RENTITY - nvarchar(4)
+          ,'*' -- PRV_CLASS - nvarchar(8)
+          ,@mrcCode -- PRV_CODE - nvarchar(100)
+          ,1 -- PRV_SEQNO - numeric(38, 0)
+          ,@mrcFullDesc -- PRV_VALUE - nvarchar(80)
+          ,NULL -- PRV_NVALUE - numeric(24, 6)
+          ,NULL -- PRV_DVALUE - datetime
+          ,'*' -- PRV_CLASS_ORG - nvarchar(15)
+          ,GETDATE() -- PRV_CREATED - datetime
+          ,'-' -- PRV_NOTUSED - nvarchar(1)
+        )
+        SELECT @flag = N'S'; 
+      END
+      ELSE
+      BEGIN
+        UPDATE
+          R5MRCS
+        SET
+          MRC_DESC = @mrcDesc
+         --,MRC_CLASS  = @mrcClass
+         ,MRC_NOTUSED = @mrcNotUsed
+        WHERE
+          MRC_CODE = @mrcCode   
+          
+        UPDATE
+          R5PROPERTYVALUES
+        SET
+          PRV_VALUE = @mrcFullDesc
+        WHERE
+          PRV_PROPERTY = 'MRCDESC' AND
+          PRV_CODE = @mrcCode  
+        
+        UPDATE R5DESCRIPTIONS SET
+           DES_TEXT = @mrcDescEn -- nvarchar(80)
+        WHERE DES_RENTITY = N'MRC' -- nvarchar(4)
+          AND DES_RTYPE = N'*' -- nvarchar(4)
+          AND DES_CODE = @mrcCode -- nvarchar(100)
+          AND DES_LANG = N'EN' -- nvarchar(2)
+        
+        UPDATE R5ADDRESS SET
+           ADR_TEXT = @mrcDescEn -- nvarchar(2000)   
+        WHERE ADR_RENTITY = N'MRC' -- nvarchar(4)
+          AND ADR_CODE = @mrcCode -- nvarchar(50)
+          AND ADR_RTYPE = N'M' -- nvarchar(4)
+          
+        UPDATE R5ADDRESS SET
+           ADR_TEXT = @mrcDesc -- nvarchar(2000)   
+        WHERE ADR_RENTITY = N'MRC' -- nvarchar(4)
+          AND ADR_CODE = @mrcCode -- nvarchar(50)
+          AND ADR_RTYPE = N'D' -- nvarchar(4)
+          
+        UPDATE R5OBJECTS SET 
+           OBJ_DESC = @mrcDesc
+          ,OBJ_NOTUSED = @mrcNotUsed
+          ,OBJ_MRC = @mrcCode
+        WHERE OBJ_OBTYPE = 'ZZJG'
+          AND OBJ_CODE = @mrcCode
+          
+        UPDATE R5STRUCTURES SET
+           STC_PARENT = @mrcParent -- nvarchar(30)
+        WHERE STC_CHILD = @mrcCode -- nvarchar(30)
+        
+        SELECT @flag = N'S',
+               @message = N'The Department information has already existed.';
+      END
+      
+    SELECT @flag AS flag,
+           @message as message;
+    
+end
+
+GO
+

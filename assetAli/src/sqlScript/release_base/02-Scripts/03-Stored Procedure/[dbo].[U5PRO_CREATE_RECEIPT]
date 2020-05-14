@@ -1,0 +1,158 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_RECEIPT]
+   @corp                       NVARCHAR (15),
+   @supplierCode               NVARCHAR (30),
+   @supplierName               NVARCHAR (80),
+   @ouCode                     NVARCHAR (80),
+   @poNumber                   NVARCHAR (80),
+   @acceptNumber               NVARCHAR (80),
+   @acceptanceLineId           NVARCHAR (80),
+   @acceptanceLineOfHEMA       NVARCHAR (80),
+   @unitPriceTaxIncluded       NVARCHAR (30),
+   @taxRate                    NVARCHAR (10),
+   @amountTaxIncluded          NVARCHAR (30),
+   @orderType                  NVARCHAR (30),
+   @workNo                     NVARCHAR (30),
+   @flag                       NVARCHAR (1) OUTPUT,
+   @message                    NVARCHAR (2000) OUTPUT,
+   @receiptNo                  NVARCHAR (30) OUTPUT
+   WITH
+   EXEC AS CALLER
+AS
+DECLARE @ncount   INT;
+DECLARE @nchk   INT;
+
+BEGIN
+   SET @flag = 'S'
+
+   BEGIN TRY
+      SELECT @ncount = count (1)
+      FROM R5COMPANIES
+      WHERE COM_CODE = upper(@supplierCode);
+
+      IF @ncount = 0
+         BEGIN
+            INSERT INTO R5COMPANIES (com_code,
+                                     com_desc,
+                                     com_org,
+                                     com_curr,
+                                     com_lang)
+            VALUES (upper(@supplierCode),
+                    @supplierName,
+                    '*',
+                    'CNY',
+                    'ZH');
+         END;
+
+      SELECT @ncount = count (1)
+        FROM r5events
+       WHERE     evt_udfchar02 = @acceptanceLineId
+             AND evt_udfchar10 = @poNumber
+             AND evt_jobtype = '10YS'
+             ---增加校验，如果是河马的需要校验行行ID
+             AND (   @CORP <> 'HEMA'
+                  OR (EVT_UDFCHAR22 = ISNULL (@acceptanceLineOfHEMA, '')))
+             AND evt_status <> 'YS50';
+
+      IF @NCOUNT > 0
+         BEGIN
+            SELECT TOP 1
+                   @receiptNo = cast (evt_code AS NVARCHAR (30))
+              FROM r5events
+             WHERE     evt_udfchar02 = @acceptanceLineId
+                   AND evt_udfchar10 = @poNumber
+                   ---增加校验，如果是河马的需要校验行行ID
+                   AND (   @CORP <> 'HEMA'
+                        OR (EVT_UDFCHAR22 =
+                               ISNULL (@acceptanceLineOfHEMA, '')))
+                   AND evt_jobtype = '10YS'
+                   AND evt_status <> 'YS50';
+
+            SELECT 'E' AS flag,
+                   N'验收单已经存在' + @receiptNo AS message,
+                   @receiptNo receiptNo;
+
+            RETURN;
+         END;
+
+
+
+      EXEC P_GETNEXTID 'S5EVENT', @receiptNo OUTPUT;
+
+
+      EXEC dbo.U5PRO_CHECK_PERSON @workno, @workno
+
+
+
+      INSERT INTO R5EVENTS                                    --添加工单语句 -跟设备，部门
+                           (EVT_CODE,
+                            EVT_DESC,
+                            EVT_TYPE,
+                            EVT_RTYPE,
+                            EVT_STATUS,
+                            EVT_RSTATUS,
+                            EVT_ORG,
+                            EVT_JOBTYPE,
+                            EVT_OBTYPE,
+                            EVT_OBRTYPE,
+                            EVT_OBJECT,
+                            EVT_OBJECT_ORG,
+                            EVT_DURATION,
+                            EVT_DATE,
+                            EVT_MRC,
+                            EVT_ENTEREDBY,
+                            EVT_ORIGIN,
+                            EVT_UDFCHAR06,
+                            EVT_UDFCHAR08,
+                            EVT_UDFCHAR10,
+                            EVT_UDFCHAR11,
+                            EVT_UDFCHAR02,
+                            EVT_UDFCHAR22,
+                            EVT_UDFCHAR13,
+                            EVT_UDFCHAR14,
+                            EVT_UDFCHAR17,
+                            EVT_UDFCHAR04)
+      VALUES (@receiptNo,
+              N'资产验收 ' + CONVERT (VARCHAR (100), GETDATE (), 23),
+              'JOB',
+              'JOB',
+              'YS10',
+              'R',
+              @corp,
+              '10YS',                                                     --固定
+              'A',                                                        --固定
+              'A',                                                        --固定
+              '*',                                                      --设备编码
+              '*',
+              1,                                                        --设备组织
+              GETDATE (),
+              '*',
+              'R5',
+              @workNo,
+              @supplierCode,
+              @ouCode,
+              @poNumber,
+              @acceptNumber,
+              @acceptanceLineId,
+              ISNULL (@acceptanceLineOfHEMA, ''),
+              @unitPriceTaxIncluded,
+              @taxRate,
+              @amountTaxIncluded,
+              @orderType)
+   END TRY
+   BEGIN CATCH
+      SELECT @flag = 'E',
+             @message = ERROR_MESSAGE ();
+   END CATCH
+
+   ---便于Mybatis获取结果。
+   SELECT @flag AS flag, @message AS message, @receiptNo receiptNo;
+END;
+
+GO

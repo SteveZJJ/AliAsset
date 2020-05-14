@@ -1,0 +1,294 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+-- =============================================
+-- Author:Jason.Zhao
+-- Create date:  2018-Jul-24
+-- Description: 创建资产信息以及验收单行
+-- =============================================
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_RECVLINE]
+    @sUserCode NVARCHAR(30),      --Receiver
+    @pEvtCode NVARCHAR(30),       --Receipt No.
+    @evtUdf01 NVARCHAR(80),       --Purchase Category
+    @evtUdf02 NVARCHAR(80),       --Shipment Line ID
+    @obj_Commiss NVARCHAR(10),    --Date of commission
+    @obj_Org NVARCHAR(15),        --Organization
+    @OBJ_UDFCHAR03 NVARCHAR(80),  --OU
+    @OBJ_UDFCHAR04 NVARCHAR(80),  --Orientation Type
+    @OBJ_UDFCHAR10 NVARCHAR(80),  -- PO Number
+    @OBJ_UDFCHAR11 NVARCHAR(80),  --Shipment Notice No.
+    @OBJ_UDFCHAR17 NVARCHAR(80),  --Original Config Info.
+    @OBJ_UDFCHAR29 NVARCHAR(80),  --Finance Book
+    @OBJ_UDFCHAR30 NVARCHAR(80),  --Currency
+    @OBJ_VALUE NUMERIC(24, 6),    --Unit price in purchasing Currency
+    @OBJ_UDFCHAR31 NVARCHAR(80),  --Finance Category Code
+    @OBJ_UDFCHKBOX02 NVARCHAR(1), --Tax Inclusive
+    @evtUdf22 NVARCHAR(30),       --Responsible Person
+    @qty INT,                     --Quantity,
+    @flag NVARCHAR(1) OUTPUT,
+    @message NVARCHAR(2000) OUTPUT
+AS
+DECLARE @sUserGroup NVARCHAR(15);
+DECLARE @ncount INT;
+DECLARE @sEvtCode BIGINT;
+DECLARE @nchk INT;
+DECLARE @TDNCODE BIGINT;
+DECLARE @ReservedTDNCODE NVARCHAR(80);
+DECLARE @obj_code NVARCHAR(30); --Asset Code Added by Joey Wang on 11 Dec 2018
+DECLARE @Sql NVARCHAR(100); --Asset Code Added by Joey Wang on 11 Dec 2018
+
+BEGIN
+    SET NOCOUNT ON;
+    SET @flag = N'S';
+    ---在此处增加校验逻辑--
+
+    ---校验人员是否存在
+    SELECT --@sUserGroup = UOG_GROUP
+        @nchk = COUNT(1)
+    FROM R5PERSONNEL
+    WHERE PER_CODE = @sUserCode;
+
+    IF @nchk = 0
+    BEGIN
+
+        INSERT INTO R5PERSONNEL (PER_CODE, PER_DESC, PER_MRC, PER_TRADE, PER_NOTUSED, PER_ORG, PER_CREATED)
+        VALUES (@sUserCode, @sUserCode, '*', '*', '-', @obj_Org, GETDATE());
+
+        RETURN;
+    END;
+
+    ---校验验收单是否存在，状态是否存在。
+
+    SELECT @nchk = COUNT(1)
+    FROM R5EVENTS
+    WHERE EVT_CODE = @pEvtCode
+          AND EVT_JOBTYPE = '10YS';
+
+    IF @nchk = 0
+    BEGIN
+        SELECT @flag = 'E',
+               @message = N'验收单不存在或者不允许添加行';
+
+        SELECT @flag AS flag,
+               @message AS message;
+
+        RETURN;
+    END;
+
+    SELECT @nchk = COUNT(1)
+    FROM R5EVENTS
+    WHERE EVT_CODE = @pEvtCode
+          AND EVT_JOBTYPE = '10YS'
+          AND EVT_UDFCHAR02 = @evtUdf02
+          AND EVT_UDFCHAR10 = @OBJ_UDFCHAR10
+    --增加盒马行行ID校验
+    --AND EVT_UDFCHAR22 = @evtUdf22
+    ;
+
+    IF @nchk = 0
+    BEGIN
+        SELECT @flag = 'E',
+               @message = N'验收单PO,发运行ID与本次添加的不一致。';
+
+        SELECT @flag AS flag,
+               @message AS message;
+
+        RETURN;
+    END;
+
+    BEGIN TRY
+        SET @Sql = 'ALTER TABLE r5events DISABLE TRIGGER POSINS_EVT'; --Added by Joey Wang on 11 Dec 2018
+        EXECUTE (@Sql);
+        --SET @Sql = 'ALTER TABLE r5events DISABLE TRIGGER POSINS_EVT_S'; --Added by Joey Wang on 11 Dec 2018
+        --EXECUTE (@Sql);
+        SET @ncount = 1;
+
+        WHILE @ncount <= @qty
+        BEGIN
+--            SET @nchk = 0;
+            --1 创建资产，需要根据大阿里编号规则来创建，
+
+--            SELECT @nchk = COUNT(1)
+--            FROM U5_OBJECTS_NOTUSED;
+
+--            IF @nchk > 0
+--            BEGIN
+--                SELECT TOP 1
+--                       @ReservedTDNCODE = OBJ_CODE
+--                FROM U5_OBJECTS_NOTUSED;
+--
+--                DELETE FROM U5_OBJECTS_NOTUSED
+--                WHERE OBJ_CODE = @ReservedTDNCODE;
+--            END;
+--            ELSE
+            
+            EXEC P_GETNEXTID 'U5OBJECTTDN', @TDNCODE OUTPUT;
+            
+            SET @obj_code = 'TDN' + RIGHT('000000000000' + CAST(@TDNCODE AS VARCHAR(12)), 12); --Create the Asset number before inserting asset
+            BEGIN TRAN;
+            INSERT INTO R5OBJECTS (OBJ_OBTYPE,
+                                   OBJ_OBRTYPE,
+                                   OBJ_GROUP,
+                                   OBJ_USER,
+                                   OBJ_CODE,
+                                   OBJ_DESC,
+                                   OBJ_CATEGORY,
+                                   OBJ_CLASS,
+                                   OBJ_CLASS_ORG,
+                                   OBJ_MRC,
+                                   OBJ_ORG,
+                                   OBJ_STATUS,
+                                   OBJ_PART,
+                                   OBJ_PART_ORG,
+                                   OBJ_COMMISS,
+                                   OBJ_UDFCHAR03,
+                                   OBJ_UDFCHAR04,
+                                   OBJ_UDFCHAR10,
+                                   OBJ_UDFCHAR11,
+                                   OBJ_UDFCHAR12,
+                                   OBJ_UDFCHAR22,
+                                   OBJ_UDFCHAR17,
+                                   OBJ_UDFCHAR29,
+                                   OBJ_UDFCHAR30,
+                                   OBJ_VALUE,
+                                   OBJ_UDFCHAR31,
+                                   OBJ_UDFCHKBOX02,
+                                   OBJ_UDFCHAR09) --发运行ID 2018-Aug-10
+            VALUES ('A',                        --设备类型
+                    'A',                        --设备类型
+                    'R5',                       --@sUserGroup,                                --用户所在用户组
+                    'R5',                       --@sUserCode,                                      --用户
+                                                /*  ISNULL(@ReservedTDNCODE,
+                           'TDN' + RIGHT('000000000000' + CAST(@TDNCODE AS VARCHAR(12)), 12))*/
+                    @obj_code,                  --设备编码
+                    N'临时设备描述',                  --设备描述
+                    '*',                        --设备子类
+                    '*',                        --设备分类
+                    '*',                        --设备分类公司
+                    '*',                        --部门
+                    @obj_Org,                   --公司
+                    'I00',                      --状态
+                    '*',                        --物料号
+                    '*',                        --物料号所属公司
+                    CAST(@obj_Commiss AS DATE), --启用日期，默认为当前时间
+                    @OBJ_UDFCHAR03,
+                    @OBJ_UDFCHAR04,
+                    @OBJ_UDFCHAR10,
+                    @OBJ_UDFCHAR11,
+                    @sUserCode,
+                    dbo.R5O7_O7GET_DESC('ZH',
+                                        'PERS',
+                                        @sUserCode,
+                                        '',
+                                        ''),
+                    @OBJ_UDFCHAR17,
+                    @OBJ_UDFCHAR29,
+                    @OBJ_UDFCHAR30,
+                    @OBJ_VALUE,
+                    @OBJ_UDFCHAR31,
+                    @OBJ_UDFCHKBOX02,
+                    @evtUdf02);
+
+            EXECUTE P_GETNEXTID 'S5EVENT', @sEvtCode OUTPUT;
+
+            INSERT INTO R5EVENTS --添加子工单语句 -跟设备，部门
+            (EVT_CODE,
+             EVT_DESC,
+             EVT_TYPE,
+             EVT_RTYPE,
+             EVT_STATUS,
+             EVT_RSTATUS,
+             EVT_ORG,
+             EVT_JOBTYPE,
+             EVT_OBTYPE,
+             EVT_OBRTYPE,
+             EVT_OBJECT,
+             EVT_OBJECT_ORG,
+             EVT_DATE,
+             EVT_MRC,
+             EVT_DURATION,
+             EVT_REPORTED,
+             EVT_TARGET,
+             EVT_SCHEDEND,
+             EVT_ENTEREDBY,
+             EVT_PARENT,
+             EVT_ROUTEPARENT,
+             EVT_CALSTATUS,
+             EVT_FIXED,
+             EVT_UDFCHAR01,
+             EVT_UDFCHAR02)
+            SELECT @sEvtCode,
+                   EVT_DESC,
+                   EVT_TYPE,
+                   EVT_RTYPE,
+                   EVT_STATUS,
+                   EVT_RSTATUS,
+                   EVT_ORG,
+                   'MEC',     --固定
+                   'A',       --固定
+                   'A',       --固定
+                              /*  ISNULL(@ReservedTDNCODE,
+                          'TDN' + RIGHT('000000000000' + CAST(@TDNCODE AS VARCHAR(12)), 12))*/
+                   @obj_code, --设备编码
+                   @obj_Org,  --设备组织
+                   EVT_DATE,
+                   '*',       ---设备部门
+                   EVT_DURATION,
+                   EVT_REPORTED,
+                   EVT_TARGET,
+                   EVT_SCHEDEND,
+                   EVT_ENTEREDBY,
+                   EVT_CODE,
+                   EVT_CODE,
+                   EVT_CALSTATUS,
+                   EVT_FIXED,
+                   @evtUdf01,
+                   @evtUdf02
+            FROM R5EVENTS
+            WHERE EVT_CODE = @pEvtCode;
+            INSERT INTO dbo.R5EVENTOBJECTS (EOB_EVENT,
+                                            EOB_OBTYPE,
+                                            EOB_OBRTYPE,
+                                            EOB_OBJECT,
+                                            EOB_LEVEL,
+                                            EOB_ROLLUP,
+                                            EOB_DOWNTIME,
+                                            EOB_OBJECT_ORG)
+            VALUES (@sEvtCode, -- EOB_EVENT - nvarchar(30)
+                    N'A',      -- EOB_OBTYPE - nvarchar(4)
+                    N'A',      -- EOB_OBRTYPE - nvarchar(4)
+                    @obj_code, -- EOB_OBJECT - nvarchar(30)
+                    0,         -- EOB_LEVEL - numeric(3, 0)
+                    N'+',      -- EOB_ROLLUP - nvarchar(1)
+                    N'+',      -- EOB_DOWNTIME - nvarchar(1)
+                    @obj_Org   -- EOB_OBJECT_ORG - nvarchar(15)
+                );
+            COMMIT TRAN;
+            PRINT @ncount; --Debug
+            PRINT CONVERT(NVARCHAR(30),
+                          GETDATE(),
+                          114); --Debug
+            PRINT @sEvtCode;
+
+            SET @ncount = @ncount + 1;
+        END;
+        SET @Sql = 'ALTER TABLE r5events ENABLE TRIGGER POSINS_EVT'; --Added by Joey Wang on 11 Dec 2018
+        EXECUTE (@Sql);
+    --SET @Sql = 'ALTER TABLE r5events ENABLE TRIGGER POSINS_EVT_S'; --Added by Joey Wang on 11 Dec 2018
+    --EXECUTE (@Sql);
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+    ---以便Mybatis获取返回结果。
+    SELECT @flag AS flag,
+           @message AS message;
+END;
+
+GO

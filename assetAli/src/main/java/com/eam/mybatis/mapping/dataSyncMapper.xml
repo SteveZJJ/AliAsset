@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eam.mybatis.dao.DataSyncMapper">
+
+
+    <select id="createPersonInfo" parameterType="com.eam.mybatis.model.R5Personnel" resultType="String">
+        exec dbo.U5PRO_CREATE_PERSON #{per_code}, #{per_desc}, #{per_mrc}, #{per_notused}
+    </select>
+
+    <insert id="newPersonInfo" parameterType="map">
+        INSERT INTO U5PERSONEL_SYNC (
+                       PES_CODE
+                      ,PES_DESC
+                      ,PES_MRC
+                      ,PES_SYNCSTATUS
+                      ,PES_SYNCMESSAGE
+                      ,PES_NOTUSED
+                      ,PES_CREATED
+                    )
+        <foreach collection="person" index="index" item="item" open=" " separator=" " close=" ">
+            SELECT #{item.per_code},#{item.per_desc},#{item.per_mrc},'N',null,#{item.per_notused},getdate() UNION
+        </foreach>
+            SELECT N'TEST', N'TEST',N'TEST','C',N'TEST',N'+',GETDATE()
+    </insert>
+
+    <select id="createDepartmentInfo" parameterType="com.eam.mybatis.model.R5Mrcs" resultType="String">
+        exec dbo.U5PRO_CREATE_MRC #{mrc_code}, #{mrc_desc}, #{mrc_class}, #{mrc_fulldesc}, #{mrc_parent}, #{mrc_descen}, #{mrc_notused}
+    </select>
+
+    <insert id="newDepartmentInfo" parameterType="map">
+        INSERT INTO U5MRC_SYNC (
+         MRS_CODE
+        ,MRS_DESC
+        ,MRS_CLASS
+        ,MRS_SYNCSTATUS
+        ,MRS_SYNCMESSAGE
+        ,MRS_FULLDESC
+        ,MRS_PARENT
+        ,MRS_NOTUSED
+        ,MRS_DESCEN
+        ,MRS_CREATED
+        )
+        <foreach collection="department" index="index" item="item" open=" " separator=" " close=" ">
+            SELECT #{item.mrc_code},#{item.mrc_desc},#{item.mrc_class},'N', null,#{item.mrc_fulldesc},#{item.mrc_parent},#{item.mrc_notused},#{item.mrc_descen},GETDATE() UNION
+        </foreach>
+        SELECT N'TEST', N'TEST',N'*','C',N'TEST',N'TEST',null,'+','TEST',GETDATE()
+    </insert>
+
+
+</mapper>

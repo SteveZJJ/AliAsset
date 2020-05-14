@@ -1,0 +1,213 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_JOB_CHKRETURNSTATUS]
+WITH EXEC AS CALLER
+AS
+
+DECLARE @OBJ_UDFCHAR01   NVARCHAR (80)
+DECLARE @OBJ_UDFCHAR05   NVARCHAR (80)
+DECLARE @OBJ_UDFCHAR13   NVARCHAR (80)
+DECLARE @OBJ_UDFCHAR34   NVARCHAR (80)
+DECLARE @OBJ_SERIALNO   NVARCHAR (80)
+DECLARE @OBJ_DESC   NVARCHAR (80)
+DECLARE @OBJ_MANUFACTMODEL   NVARCHAR (80)
+DECLARE @OBJECTLIST  NVARCHAR(4000)
+DECLARE @OBJ_CODE  NVARCHAR(80)
+DECLARE 
+  @evtCode    NVARCHAR(30),
+  @evtPerson  NVARCHAR(30),
+  @evtJobtype NVARCHAR(30),
+  @evtReqCode NVARCHAR(30),
+  @evtLocation  NVARCHAR(30),
+  @evtLeaveDate  NVARCHAR(30),
+  @evtReturnStr  NVARCHAR(30),
+  @personName  NVARCHAR(80),
+  @mailRule  nvarchar(80),
+  @NCOUNT INT
+
+
+Begin
+   DECLARE
+      EVTLIST CURSOR LOCAL FOR
+         SELECT EVT_CODE,
+                EVT_OBJECT,
+                EVT_ORIGIN,
+                EVT_JOBTYPE,
+                EVT_UDFCHAR01,
+                EVT_UDFDATE02,
+                EVT_UDFCHAR16
+           FROM R5EVENTS 
+          WHERE EVT_JOBTYPE = N'30LZ' AND
+                EVT_STATUS <> N'C' AND
+                  (DATEDIFF(
+                      DAY
+                     ,getdate()
+                     ,evt_udfdate02
+                      ) = 1 OR
+                   DATEDIFF(
+                      DAY
+                     ,getdate()
+                     ,evt_udfdate02
+                      ) = 7 OR
+                    DATEDIFF(
+                      DAY     
+                     ,getdate()
+                     ,evt_udfdate02
+                      ) = -1 OR
+                    DATEDIFF(
+                      DAY
+                     ,getdate()
+                     ,evt_udfdate02
+                      ) = -8) AND 
+                EVT_CLASS = N'IT' ---------不管有多少个离职单，只发送一次邮件   
+   OPEN EVTLIST
+   FETCH NEXT FROM EVTLIST
+        INTO @evtCode,
+             @evtLocation,
+             @evtPerson,
+             @evtJobtype,
+             @evtReqCode,
+             @evtLeaveDate,
+             @evtReturnStr
+
+   WHILE @@FETCH_STATUS = 0
+   BEGIN
+   
+      SELECT @personName = PER_DESC FROM R5PERSONNEL WHERE PER_CODE = @evtPerson;
+      SELECT @NCOUNT = COUNT(1) FROM R5EVENTS WHERE EVT_JOBTYPE = 'MEC' AND EVT_PARENT IN(SELECT EVT_CODE FROM R5EVENTS WHERE EVT_UDFCHAR01 = @evtReqCode);
+      
+      IF @NCOUNT > 0 
+      BEGIN
+        IF  DATEDIFF( DAY ,getdate() ,@evtLeaveDate) > 0 
+          SET @mailRule = 'Company';
+        ELSE
+          SET @mailRule = 'Personal';
+        SET @OBJECTLIST = N'';
+                        
+        ----拼接资产清单
+        DECLARE OBJECTLIST cursor LOCAL for
+           SELECT isnull(obj_udfchar13,'N/A'),
+                  isnull(obj_udfchar01,'N/A'),
+                  isnull(obj_udfchar05,'N/A'),
+                  isnull(OBJ_MANUFACTMODEL,'N/A'),
+                  isnull(OBJ_SERIALNO,'N/A'),
+                  isnull(obj_desc,'N/A'),
+                  isnull(obj_udfchar34,'N/A'),
+                  isnull(obj_code,'N/A')
+             FROM R5OBJECTS
+            WHERE OBJ_CODE IN (SELECT EVT_OBJECT FROM R5EVENTS WHERE EVT_PARENT IN (SELECT EVT_CODE FROM R5EVENTS WHERE EVT_UDFCHAR01 = @evtReqCode))
+        OPEN OBJECTLIST
+        FETCH NEXT FROM OBJECTLIST
+        INTO @OBJ_UDFCHAR13,
+            @OBJ_UDFCHAR01,
+            @OBJ_UDFCHAR05,
+            @OBJ_MANUFACTMODEL,
+            @OBJ_SERIALNO,
+            @OBJ_DESC,
+            @OBJ_UDFCHAR34,
+            @OBJ_CODE
+          
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+          
+        set @OBJECTLIST = @OBJECTLIST + @OBJ_DESC + N' | ' + @OBJ_UDFCHAR01 + N' | ' + @OBJ_CODE + N' | ' + @OBJ_UDFCHAR05 + N' | ' + @OBJ_MANUFACTMODEL + N' | ' + @OBJ_SERIALNO + N' | ' + @OBJ_UDFCHAR34 + N'</br>';
+          
+        print N'OBJECTLIST 是' + @OBJECTLIST;
+          
+          
+          
+        FETCH NEXT FROM OBJECTLIST
+        INTO @OBJ_UDFCHAR13,
+            @OBJ_UDFCHAR01,
+            @OBJ_UDFCHAR05,
+            @OBJ_MANUFACTMODEL,
+            @OBJ_SERIALNO,
+            @OBJ_DESC,
+            @OBJ_UDFCHAR34,
+            @OBJ_CODE
+        END
+        CLOSE OBJECTLIST
+        DEALLOCATE OBJECTLIST
+   
+        --触发员工催还邮件
+        INSERT INTO
+          r5mailevents(
+            mae_attribpk
+           ,mae_template
+           ,mae_ewsurl
+           ,mae_emailrecipient
+           ,mae_param1
+           ,mae_param2
+           ,mae_param3)
+          SELECT
+            N'10010'
+           ,N'ALI0004'
+           ,''
+           ,''
+           ,cast(@evtPerson AS NVARCHAR(4000))
+           ,@evtLeaveDate
+           ,@OBJECTLIST
+        
+        UPDATE
+          U5MAILEVENTRULE
+        SET
+          MER_RULECODE = @mailRule
+         ,MER_DATE     = getdate()
+        WHERE
+          MER_EVTSQLID = @@IDENTITY;    
+        
+        
+        
+        --触发员工主管通知   
+        INSERT INTO
+          r5mailevents(
+            mae_attribpk
+           ,mae_template
+           ,mae_ewsurl
+           ,mae_emailrecipient
+           ,mae_param1
+           ,mae_param2
+           ,mae_param3
+           ,mae_param4)
+          SELECT
+            N'10016'
+           ,N'ALI0010'
+           ,''
+           ,''
+           ,cast(@evtPerson AS NVARCHAR(4000))
+           ,@personName
+           ,cast(@evtPerson AS NVARCHAR(4000))
+           ,cast(@evtLeaveDate AS NVARCHAR(4000))
+           
+           
+           
+        UPDATE
+          U5MAILEVENTRULE
+        SET
+          MER_RULECODE = 'Superior'
+         ,MER_DATE     = getdate()
+        WHERE
+          MER_EVTSQLID = @@IDENTITY;   
+      END
+         
+      
+   FETCH NEXT FROM EVTLIST
+        INTO @evtCode,
+             @evtLocation,
+             @evtPerson,
+             @evtJobtype,
+             @evtReqCode,
+             @evtLeaveDate,
+             @evtReturnStr
+   END
+   
+   CLOSE EVTLIST;
+   DEALLOCATE EVTLIST;
+end ;
+
+GO

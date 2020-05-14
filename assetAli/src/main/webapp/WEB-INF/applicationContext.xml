@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+      http://www.springframework.org/schema/beans/spring-beans-4.1.xsd   
+      http://www.springframework.org/schema/context   
+      http://www.springframework.org/schema/context/spring-context-4.1.xsd   
+      http://www.springframework.org/schema/aop   
+      http://www.springframework.org/schema/aop/spring-aop-4.1.xsd   
+      http://www.springframework.org/schema/tx	
+      http://www.springframework.org/schema/tx/spring-tx-4.1.xsd">
+
+    <context:component-scan base-package="com.eam"/>
+    <bean
+            class="org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor"/>
+    <context:annotation-config/>
+    <aop:config proxy-target-class="true"/>
+    <bean id="eamContextUtil" class="com.eam.context.EamContextUtil"/>
+
+    <!-- <util:properties/> 标签只能加载一个文件，当多个属性文件需要被加载的时候，可以使用多个该标签 -->
+
+    <bean id="configuring"
+          class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="location" value="file:${catalina.home}/conf/configInfo.properties"/>
+    </bean>
+    <bean id="taskExecutor"
+          class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+        <property name="corePoolSize" value="25"/>
+        <property name="maxPoolSize" value="200"/>
+        <property name="queueCapacity" value="25"/>
+        <property name="keepAliveSeconds" value="300"/>
+        <property name="rejectedExecutionHandler">
+            <bean class="java.util.concurrent.ThreadPoolExecutor$CallerRunsPolicy"/>
+        </property>
+    </bean>
+    <bean id="propertyConfigurer"
+          class="org.springframework.beans.factory.config.PreferencesPlaceholderConfigurer">
+        <property name="properties" ref="configuring"/>
+    </bean>
+
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource"
+          destroy-method="close">
+        <property name="driverClassName" value="${driverClass}"/>
+        <property name="url" value="${jdbcUrl}"/>
+        <property name="username" value="${username}"/>
+        <property name="password" value="${password}"/>
+        <property name="initialSize" value="${initialPoolSize}"/>
+        <property name="minIdle" value="${minPoolSize}"/>
+        <property name="maxActive" value="${maxPoolSize}"/>
+        <!--        <property name="acquireIncrement" value="${acquireIncrement}"/>-->
+        <property name="maxWait" value="50000"/>
+
+        <!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 -->
+        <property name="timeBetweenEvictionRunsMillis" value="30000" />
+        <!-- 配置一个连接在池中最小生存的时间，单位是毫秒 -->
+        <property name="minEvictableIdleTimeMillis" value="25200000" />
+        <!-- 连接泄露检查，打开removeAbandoned功能 , 连接从连接池借出后，长时间不归还，将触发强制回连接。回收周期随timeBetweenEvictionRunsMillis进行，如果连接为从连接池借出状态，并且未执行任何sql，并且从借出时间起已超过removeAbandonedTimeout时间，则强制归还连接到连接池中。 -->
+        <property name="removeAbandoned" value="true" />
+        <!-- 超时时间，秒 -->
+        <property name="removeAbandonedTimeout" value="80"/>
+        <!-- 关闭abanded连接时输出错误日志，这样出现连接泄露时可以通过错误日志定位忘记关闭连接的位置 -->
+        <!--        <property name="logAbandoned" value="true" />-->
+        <property name="poolPreparedStatements" value="true" />
+        <property name="maxPoolPreparedStatementPerConnectionSize" value="20"/>
+        <property name="maxOpenPreparedStatements" value="100"/>
+        <!-- 配置监控统计拦截的filters，去掉后监控界面sql无法统计 -->
+        <property name="filters" value="stat,wall,log4j" />
+
+        <!--
+            用来检测连接是否有效的sql，要求是一个查询语句。
+            如果validationQuery为null，testOnBorrow、testOnReturn、
+            testWhileIdle都不会其作用
+        -->
+        <property name="validationQuery" value="SELECT 1" />
+        <property name="testWhileIdle" value="true" />
+        <property name="testOnBorrow" value="false" />
+        <property name="testOnReturn" value="false" />
+    </bean>
+
+    <!--    <bean id="dataSource" class="com.zaxxer.hikari.HikariDataSource"-->
+    <!--          destroy-method="close">-->
+    <!--        <property name="driverClassName" value="${driverClass}"/>-->
+    <!--        <property name="jdbcUrl" value="${jdbcUrl}"/>-->
+    <!--        <property name="username" value="${username}"/>-->
+    <!--        <property name="password" value="${password}"/>-->
+    <!--&lt;!&ndash;        <property name="" value="${initialPoolSize}"/>&ndash;&gt;-->
+    <!--        <property name="minimumIdle" value="${minPoolSize}"/>-->
+    <!--        <property name="maximumPoolSize" value="${maxPoolSize}"/>-->
+    <!--        &lt;!&ndash;        <property name="acquireIncrement" value="${acquireIncrement}"/>&ndash;&gt;-->
+    <!--&lt;!&ndash;        <property name="connectionTimeout" value="${maxIdleTime}"/>&ndash;&gt;-->
+    <!--&lt;!&ndash;        <property name="maxOpenPreparedStatements" value="${maxStatements}"/>&ndash;&gt;-->
+    <!--        <property name="connectionTestQuery" value="select 1"/>-->
+    <!--        <property name="readOnly" value="false" />-->
+
+    <!--    </bean>-->
+
+    <!-- 使用spring的会话管理 -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="mapperLocations" value="classpath*:com/eam/mybatis/mapping/*.xml"/>
+    </bean>
+    <bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg index="0" ref="sqlSessionFactory"/>
+    </bean>
+    <!-- 使用spring的事务管理 -->
+    <bean name="transactionManager"
+          class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <!-- enable transaction annotation support -->
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+
+    <!-- 配置druid监控spring jdbc -->
+    <bean id="druid-stat-interceptor" class="com.alibaba.druid.support.spring.stat.DruidStatInterceptor" />
+
+    <bean id="druid-stat-pointcut" class="org.springframework.aop.support.JdkRegexpMethodPointcut" scope="prototype">
+        <property name="patterns">
+            <list>
+                <value>com.eam.mybatis.service.*</value>
+                <value>com.eam.mybatis.dao.*</value>
+            </list>
+        </property>
+    </bean>
+
+    <aop:config proxy-target-class="true">
+        <aop:advisor advice-ref="druid-stat-interceptor" pointcut-ref="druid-stat-pointcut" />
+    </aop:config>
+
+</beans>

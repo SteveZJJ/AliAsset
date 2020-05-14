@@ -1,0 +1,183 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+-- =============================================
+-- Version 2.0
+-- Author:Steve Zhang
+-- Create date:  2018年8月24日15:17:03
+-- Description: 为了解决性能问题，新的逻辑生成手工验收单
+-- Updated by Joey Wang on 12 Dec 2018
+-- Remark: Disable trigger when inserting MEC WO
+--         rewrite to create the asset with the actual part code instead of update afterwards
+-- =============================================
+ALTER PROCEDURE [dbo].[U5PRO_CREATE_ASSET_RECEIPT_MANUAL]
+    @ouCode NVARCHAR(80),
+    @corp NVARCHAR(15),
+    @partCode NVARCHAR(80),
+    @number INT,
+    @workNo NVARCHAR(30),
+    @flag NVARCHAR(1) OUTPUT,
+    @message NVARCHAR(2000) OUTPUT,
+    @receiptNo NVARCHAR(30) OUTPUT,
+    @org NVARCHAR(15) OUTPUT
+WITH EXEC AS CALLER
+AS
+DECLARE @nchk INT;
+DECLARE @ncount INT;
+DECLARE @objclass NVARCHAR(8);
+DECLARE @objcate NVARCHAR(30);
+DECLARE @TDNCODE NVARCHAR(80);
+DECLARE @OBJCODE NVARCHAR(80);
+DECLARE @sEvtCode NVARCHAR(30);
+DECLARE @faCode NVARCHAR(30);
+DECLARE @faId NVARCHAR(30);
+DECLARE @sql NVARCHAR(100); --Added by Joey Wang on 12 Dec 2018
+DECLARE @objdescZH NVARCHAR(80); --Added by Joey Wang on 12 Dec 2018
+DECLARE @objDescEn NVARCHAR(80); --Added by Joey Wang on 12 Dec 2018
+DECLARE @taskCode NVARCHAR(30); --Added by Joey Wang on 12 Dec 2018
+
+DECLARE @sEvtReported  NVARCHAR(30);
+DECLARE @sEvtTarget  NVARCHAR(30);
+DECLARE @sEVTSchedend  NVARCHAR(30);
+DECLARE @sEvtCalStatus  NVARCHAR(30);
+DECLARE @sEvtFixed  NVARCHAR(30);
+
+BEGIN
+    SET @flag = 'S';
+    PRINT N'Start';
+    PRINT CONVERT(NVARCHAR(15),
+                  GETDATE(),
+                  114); --Debug
+                  
+                  
+    BEGIN TRY
+    BEGIN TRAN;
+        EXEC dbo.U5PRO_CHECK_PERSON @workNo, @workNo;
+        EXEC P_GETNEXTID 'S5EVENT', @receiptNo OUTPUT;
+
+        INSERT INTO R5EVENTS (EVT_UDFCHKBOX02,
+                              EVT_CODE,
+                              EVT_DESC,
+                              EVT_ENTEREDBY,
+                              EVT_JOBTYPE,
+                              EVT_TYPE,
+                              EVT_RTYPE,
+                              EVT_STATUS,
+                              EVT_RSTATUS,
+                              EVT_ORG,
+                              EVT_OBTYPE,
+                              EVT_OBRTYPE,
+                              EVT_DATE,
+                              EVT_MRC,
+                              EVT_UDFCHAR08,
+                              EVT_DURATION,
+                              EVT_OBJECT,
+                              EVT_OBJECT_ORG,
+                              EVT_UDFCHAR18,
+                              EVT_UDFNUM01,
+                              EVT_ORIGIN)
+        VALUES ('+',
+                @receiptNo,
+                N'手动新增 Manual Creation' + CONVERT(VARCHAR(100),
+                                                  GETDATE(),
+                                                  23),
+                N'R5',
+                '100YS',
+                'JOB',
+                'JOB',
+                'YS10',
+                'R',
+                @corp,
+                'A',
+                'A',
+                GETDATE(),
+                '*',
+                @ouCode,
+                1,
+                '*',
+                '*',
+                           --      NULL,
+                @partCode, --Changed by Joey Wang on 12 Dec 2018
+                @number,
+                @workNo);
+                
+          --获取验收单父工单信息
+                
+--          SELECT  @sEvtReported = EVT_REPORTED,
+--                 @sEvtTarget = EVT_TARGET,
+--                 @sEVTSchedend = EVT_SCHEDEND,
+--                 @sEvtCalStatus = EVT_CALSTATUS,
+--                 @sEvtFixed = EVT_FIXED
+--            FROM R5EVENTS
+--            WHERE EVT_CODE = @receiptNo;
+
+--          SELECT @objcate = PAR_CATEGORY,
+--               @objclass = PAR_CLASS,
+--               @objDescEn = dbo.R5O7_O7GET_DESC('EN',
+--                                                'PART',
+--                                                PAR_CODE,
+--                                                '',
+--                                                ''), --Added by Joey Wang on 12 Dec 2018
+--               @objdescZH = PAR_DESC                 --Added by Joey Wang on 12 Dec 2018
+--           FROM R5PARTS
+--          WHERE PAR_CODE = @partCode;
+--
+--        SELECT TOP 1
+--               @faCode = LMD_FINANCECATETORY,
+--               @faId = LMD_FINANCECATETORYID
+--        FROM U5PARTCATEGORY
+--        WHERE LMD_PARTCODE = @partCode
+--              AND LMD_FINANCESYSTEM = @corp;
+        --and LMD_USAGECODE = 'MANUAL_OFFICE';
+
+        SET @ncount = 0;
+		
+        WHILE @ncount < @number
+        BEGIN
+            --BEGIN TRAN;
+            --1 创建资产编号，需要根据大阿里编号规则来创建，
+
+              EXEC P_GETNEXTID 'U5OBJECTTDN', @TDNCODE OUTPUT;
+              set @OBJCODE = ('TDN'
+                + RIGHT ('000000000000' + CAST (@TDNCODE AS VARCHAR (12)),
+                         12))
+
+--              EXEC U5PRO_GETNEXTOBJCODE @OBJCODE OUTPUT;
+
+               
+            --插入资产编号与工单关联表中
+            PRINT N'Start Insert TDN';
+            INSERT INTO
+              U5OBJECT_TDN_TOUSE(
+                OBJ_CODE
+               ,EVT_CODE)
+            VALUES
+              (@OBJCODE
+               ,@receiptNo)     
+               
+            SET @ncount = @ncount + 1;
+            
+            --COMMIT TRAN;
+        END;
+
+    COMMIT TRAN;
+    END TRY
+    BEGIN CATCH
+		--ROLLBACK TRAN A;
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+		
+    END CATCH;
+    SET @org = @corp; --Added by Joey Wang on 12 Dec 2018
+    ---以便Mybatis获取返回结果。
+    SELECT @flag AS flag,
+           @message AS message,
+           @receiptNo receiptNo,
+           @org org;
+END;
+
+GO

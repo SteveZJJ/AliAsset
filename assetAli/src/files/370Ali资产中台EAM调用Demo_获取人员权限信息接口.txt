@@ -1,0 +1,55 @@
+————————————————————————————————————————————————————————————————————————————————————————
+getUserGroup 获取人员信息
+Get:userId 必填,员工号。 language 语言  corp 组织
+http://100.69.200.73:9090/alieam/api/getUserGroup?userId=zoez&language=ZH&corp=ALID
+
+返回结果:
+{
+    "flag": "S",
+    "message": null,
+    "data": {
+        "userId": "ZOEZ",
+        "userName": "大绛",
+        "userLang": "ZH",
+        "groups": [
+            {
+                "groupId": "G01",
+                "groupName": "系统管理员",
+                "corp": "ALID",
+                "corpName": "阿里国内"
+            }
+        ]
+    }
+}
+————————————————————————————————————————————————————————————————————————————————————————
+
+————————————————————————————————————————————————————————————————————————————————————————
+
+各字段定义如下：	private String userId;//员工号
+	private String userName;//员工姓名
+	private String userLang;//员工默认语言
+	private List <R5UserGroup> groups;//用户组信息
+
+	//---------以下是资产详情字段-----------------
+       	private String groupId;
+	private String groupName;
+	private String corp;//员工组织
+	private String corpName;//员工组织
+————————————————————————————————————————————
+获取单据状态历史接口
+http://100.69.200.73:9090/alieam/api/relatedEventCode?eventCode=58848&language=ZH
+{
+    "flag": "S",
+    "message": null,
+    "data": []
+}
+已读
+private String evtStatus;// 状态
+  private String statusType;// 状态的时效性
+  private String logName;// 节点名称
+  private String logWorkNo;// 节点处理人
+  private String logResult;//  处理结果
+  private String logOpinion;// 意见
+  private String logTime;// 处理时间
+  private String expressNo;// 快递单号
+  private String expressComp;// 快递公司

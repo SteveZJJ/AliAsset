@@ -1,0 +1,125 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_UPDATE_RECEIPTSTATUS]
+    @evtCode BIGINT,
+    @language NVARCHAR(10),
+    @evtStatus NVARCHAR(10),
+    @flag NVARCHAR(1) OUTPUT,
+    @message NVARCHAR(2000) OUTPUT
+WITH EXEC AS CALLER
+AS
+DECLARE @ncount INT;
+DECLARE @checkMessage NVARCHAR(500);
+
+BEGIN
+    SET @flag = N'S';
+
+    BEGIN TRY
+        /*********增加唯一性校验 2018-09-11**Jason**Zhao******/
+        SELECT @ncount = COUNT(1)
+        FROM R5EVENTS
+        WHERE EVT_CODE = @evtCode
+              AND EVT_JOBTYPE IN ( '10YS', '100YS' )
+              AND @evtStatus NOT IN ( 'YS10', 'YS20', 'YS50' );
+
+        IF @ncount > 0
+        BEGIN
+            DECLARE c_check CURSOR LOCAL FOR WITH allCheck
+                                             AS (
+                                                SELECT *
+                                                FROM R5ACTCHECKLISTS,
+                                                     U5CHKPROPMAPPING
+                                                WHERE ACK_EVENT NOT IN (
+                                                                           SELECT EVT_CODE
+                                                                           FROM R5EVENTS
+                                                                           WHERE EVT_JOBTYPE IN ( '10YS', '100YS' )
+                                                                                 AND EVT_STATUS IN ( 'YS10', 'YS20',
+                                                                                                     'YS50'
+                                                                                                   )
+                                                                                 AND EVT_PARENT IS NULL
+                                                                       )
+                                                      AND ACK_TASKCHECKLISTCODE = CPM_CHKITEM
+                                                      AND
+                                                      (
+                                                          CPM_PROPERTY IN ( 'L-MAC', 'W-MAC', 'IMEI' )
+                                                          OR CPM_OBJFIELD IN ( 'OBJ_SERIALNO' )
+                                                      )
+                                                      AND ACK_NOTES IS NOT NULL
+                                                      AND ACK_NOTES <> ''),
+                                                  thisCheck
+                                             AS (SELECT *
+                                                 FROM R5ACTCHECKLISTS,
+                                                      U5CHKPROPMAPPING
+                                                 WHERE ACK_EVENT = @evtCode
+                                                       AND ACK_TASKCHECKLISTCODE = CPM_CHKITEM
+                                                       AND
+                                                       (
+                                                           CPM_PROPERTY IN ( 'L-MAC', 'W-MAC', 'IMEI' )
+                                                           OR CPM_OBJFIELD IN ( 'OBJ_SERIALNO' )
+                                                       )
+                                                       AND ACK_NOTES IS NOT NULL
+                                                       AND ACK_NOTES <> '')
+            SELECT (CASE @language
+                        WHEN 'ZH' THEN
+                            N' 资产信息重复提醒：
+                  以下资产信息已存在，请不要重复录入！
+                  实物资产编号为：' + thisCheck.ACK_OBJECT + N',  该资产的"' + thisCheck.ACK_DESC + N': ' + allCheck.ACK_NOTES
+                            + N' ":信息与实物资产编号为：' + allCheck.ACK_OBJECT + N' 的重复！'
+                        ELSE
+                            'Duplicated asset information reminder:
+Following assets information have already existed, please do not reuse!' + thisCheck.ACK_DESC + ' '
+                            + allCheck.ACK_NOTES + ' of physical asset number ' + thisCheck.ACK_OBJECT
+                            + ' is duplicated with ' + thisCheck.ACK_DESC + ' of the physical asset number '
+                            + allCheck.ACK_OBJECT
+                    END
+                   )
+            FROM allCheck
+                INNER JOIN thisCheck
+                    ON allCheck.ACK_EVENT <> thisCheck.ACK_EVENT
+                       AND allCheck.ACK_NOTES = thisCheck.ACK_NOTES
+                       AND allCheck.ACK_TASKCHECKLISTCODE = thisCheck.ACK_TASKCHECKLISTCODE;
+
+            OPEN c_check;
+
+            FETCH NEXT FROM c_check
+            INTO @checkMessage;
+            SELECT @message = '';
+
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                SELECT @message = @message + @checkMessage;
+                FETCH NEXT FROM c_check
+                INTO @checkMessage;
+            END;
+
+            IF @message <> ''
+            BEGIN
+                SELECT 'E' AS flag,
+                       @message AS message;
+
+                RETURN;
+            END;
+        END;
+
+        UPDATE R5EVENTS
+        SET EVT_STATUS = @evtStatus,
+		    evt_updatecount = evt_updatecount + 1, -- added by Joey Wang on 20 Nov 2018
+			evt_updated = GETDATE(),-- added by Joey Wang on 20 Nov 2018
+            EVT_RSTATUS = [dbo].[O7CCODE](@evtStatus, 'EVST')
+        WHERE EVT_CODE = @evtCode;
+    END TRY
+    BEGIN CATCH
+        SELECT @flag = 'E',
+               @message = ERROR_MESSAGE();
+    END CATCH;
+
+    SELECT @flag AS flag,
+           @message AS message;
+END;
+
+GO

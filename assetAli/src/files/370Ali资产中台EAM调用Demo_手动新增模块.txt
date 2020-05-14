@@ -1,0 +1,427 @@
+————————————————————————————————————————————————————————————————
+手工新增接口Demo
+————————————————————————————————————————————————————————————————
+
+I201创建验收单：CreateAssetReceiptManaul
+
+	请求示例：
+		POST：http://100.69.200.73:9090/alieam/api/createAssetReceiptManual
+		参数：{"corp":"ALIO","ouCode":"123457","quantity":"2","assetCategory":"S0000012","language":"zh"}
+		响应：{
+			      "flag": "S",
+			      "message": null,
+			      "data": {
+			          "org": "ALIO",
+			          "receiptNo": "10586"
+			      }
+			  }
+
+		private String corp; //组织 EVT_ORG
+	    private String ouCode; //所属OU EVT_UDFCHAR08
+	    @JsonProperty(value="assetCategory")
+	    private String partCode; //物料ID EVT_UDFCHAR18
+	    @JsonProperty(value="quantity")
+	    private String number; //资产数量
+	    private String language; //语言
+	    private String flag;
+	    private String message;
+	    private String receiptNo; //验收单号（返回值） EVT_CODE
+
+
+
+————————————————————————————————————————————————————————————————
+
+I205更新验收单基本信息：NewReceiptDetailManual
+
+	请求示例：
+		POST：http://100.69.200.73:9090/alieam/api/newReceiptDetailsManual
+		参数：{"receiptNo":"10586","locId":"226","workNo":"144959","ifStore":"Y","usageNote":"usage1","newType":"内部公司转入","ownerShip":"自有","poNumber":"PO35153966","locDetail":"location Detail","storeId":"S026","model":"520780363136767615","serialNo":"D29KS922J498SJ2","corp":"ALIO","brand":"520780363136767614","supplierName":"0102000003","userNo":"76534","respNo":"76534","ouCode":"OU28472","currencyCode":"BSD","taxInclusive":"Y","unitPrice":"285.65"}
+		响应：{
+			      "flag": "S",
+			      "message": null,
+			      "data": {
+			          "corp": "ALIO",
+			          "receiptNo": "10586"
+			      }
+			  }
+
+	    private String receiptNo; //验收单号 EVT_COD
+	    private String locId; //存放地点ID EVT_OBJECT
+	    private String workNo; //验收人 EVT_ORIGIN
+	    private String ifStore; //是否存放到库房 EVT_UDFCHAR12
+	    private String usageNote; //使用说明 EVT_UDFCHAR07 (80),--OBJ_UDFCHAR07使用说明
+	    private String newType; //新增类型 EVT_UDFCHAR08
+	    private String ownerShip; //所有权 EVT_UDFCHAR09
+	    private String poNumber; //po号 EVT_UDFCHAR10 (80)--OBJ_UDFCHAR10PO号
+	    private String locDetail; //详细位置备注 EVT_UDFCHAR11
+	    private String storeId; //存放仓库ID EVT_UDFCHAR16 (30),--OBJ_STORE存放仓库ID
+	    private String model;// (30),--OBJ_MANUFACTMODEL 型号
+	    private String partCode;// (30),--OBJ_PART物资编码
+	    private String serialNo;// (30),--OBJ_SERIALNO序列号
+	    private String corp;// (30),--OBJ_ORG
+	    private String brand;// (30),--OBJ_UDFCHAR05品牌
+	    private String supplierName;// (30),--OBJ_UDFCHAR06供应商
+	    private String respNo;// (80),--OBJ_UDFCHAR12责任人ID
+	    private String userNo;// (80),--OBJ_UDFCHAR13使用人ID
+	    private String depNo;// (80),--OBJ_UDFCHAR14归口管理部门ID
+	    private String configChange;// (80),--OBJ_UDFCHAR16配置变更信息
+	    private String locationNote;// (80)--OBJ_UDFCHAR27详细位置备注
+	    private String ouCode;// (80)--OBJ_UDFCHAR03所属OU
+	    private String currencyCode; // (30)--OBJ_UDFCHAR30原币币种
+	    private String taxInclusive;// (30)--OBJ_UDFCHKBOX02是否含税
+	    private String unitPrice; // (30)--OBJ_VALUE单价
+
+—————————————————————————————————————————————————————————————————
+
+I034更新非通用属性：NewReceipt
+
+	请求示例：
+		POST:http://100.69.200.73:9090/alieam/api/newReceiptDetails
+		POST2:批量提交接口  http://100.69.200.73:9090/alieam/api/newReceiptDetails_L
+		参数:{"serialNo":"123","receiptNo":"验收单号","actNum":"11","assetCode":"assetCode","propertyType":"propertyType","propertyTypeCode":"propertyTypeCode","checkValue":"checkValue","remark":"remark","checked":"checked","checkedYes":"checkedYes","checkedNo":"checkedNo","checkResult":"checkResult","workNo":"workNo","language":"language"}
+		响应:{"flag":"E","message":"检查项不存在"}
+
+        private String serialNo;// --ack_sequence 序号
+	    private String description;// --验收项目描述
+	    // dbo.r5o7_o7get_desc(lang,'TCLI',ACK_CODE,'','')
+	    private String propertyType;// 属性列字段类型
+	    // dbo.r5o7_o7get_desc(lang,'UOM',ACK_UOM,'','')
+	    private String isNeed;// 是否必填 ACK_REQUIREDTOCLOSE +/-
+	    private String checkType;// ACK_TYPE 验收项目类型
+	    private String checkPointType;// ACK_POINTTYPE 约定值 GENERAL
+	    // 表示该验收项为公用，验收单头部统一填写。
+	    private String propertyTypeCode;// ack_uom
+	    private String receiptNo;//ACK_EVENT 验收单号
+	    private String actNum;//ACK_ACT 验收单活动号
+	    private String assetCode;//ACK_OBJECT 资产编号
+	    private String checkValue;//ACK_VALUE 验收项值
+	    private String remark;//ACK_NOTES 备注
+	    private String checked;//ACK_COMPLETED 已检查
+	    private String checkedYes;//ACK_YES Yes
+	    private String checkedNo;//ACK_NO No
+	    private String checkResult;//ACK_FINDING 验收结果（定性）
+	    private String workNo;//ACK_UPDATEDBY 更新人
+	    private String language;//语言
+
+
+
+——————————————————————————————————————————————————————————————————
+
+I210验收单草稿查询 getReceiptDraft
+	
+	请求示例：
+		GET：http://100.69.200.73:9090/alieam/api/getReceiptDraft?receiptNo=10586&language=zh
+		参数：receiptNo=10586
+		     language=zh
+		响应：{
+               "flag": "S",
+               "message": null,
+               "data": {
+                   "receiptType": "+",
+                   "receiptNo": "10850",
+                   "receiptDesc": "手动验收2018-09-05",
+                   "enteredBy": "R5",
+                   "partCode": "S0000295",
+                   "partDesc": "显示器",
+                   "jobType": "10YS",
+                   "depNo": "*",
+                   "workNo": "144959",
+                   "workDesc": "ZOEZ",
+                   "ifStore": null,
+                   "number": "2.000000",
+                   "createDate": null,
+                   "model": "520780363136767615",
+                   "modelDesc": "?",
+                   "storeCode": "S026",
+                   "storeDesc": "Dubai楼宇小仓",
+                   "corp": "ALIO",
+                   "ouCode": "OU28472",
+                   "brand": "520780363136767614",
+                   "brandDesc": "?",
+                   "usageNote": "U29",
+                   "poNumber": "PO35153966",
+                   "respNo": "76534",
+                   "respDesc": "玥瞳",
+                   "locId": "226",
+                   "locDesc": "布基拉法索",
+                   "currencyCode": "BSD",
+                   "taxInclusive": "Y",
+                   "unitPrice": "285.650000",
+                   "acceptDate": "2018-09-09",
+                   "locationNote": "location Detail",
+                   "ownerShip": null,
+                   "newType": null,
+                   "assetCode": [
+                       "TDN000000000250",
+                       "TDN000000000251"
+                   ]
+               }
+           }
+
+		    private String receiptType; //创建类型 EVT_UDFCHKBOX3  如果是"+"则代表是手动新增
+            private String receiptNo; //验收单号 EVT_CODE
+            private String receiptDesc; //验收单说明 EVT_DESC
+            private String enteredBy; //录入人用户
+            private String partCode; //物料ID EVT_UDFCHAR18
+            private String partDesc; //物料描述
+            //private String jobRType; //工单类型系统代码 EVT_JOBRTYPE
+            private String jobType; //工单类型系统代码 EVT_JOBTYPE
+            private String depNo; //使用部门 EVT_MRC
+            private String workNo; //验收人 EVT_ORIGIN
+            private String workDesc; //验收人描述
+            private String ifStore; //是否入库 EVT_UDFCHAR12
+            private String number; //数量 EVT_UDFNUM01
+            private String createDate; // 创建日期 EVT_CREATED
+
+            //private String assetCode; //大阿里编号 OBJ_CODE
+            private String model; //型号 OBJ_MANUFACTIMODEL
+            private String modelDesc; //型号描述
+            //private String serialNo; //SN OBJ_SERIALNO
+            private String storeCode; //仓库ID OBJ_STORE
+            private String storeDesc; //仓库描述
+            private String corp; //组织 OBJ_ORG
+            private String ouCode; //所属OU OBJ_UDFCHAR03
+            private String brand; //品牌 OBJ_UDFCHAR05
+            private String brandDesc; //品牌描述
+            //private String supplierCode; //供应商 OBJ_UDFCHAR06
+            private String usageNote; //使用说明 OBJ_UDFCHAR07
+            private String poNumber; //po号 OBJ_UDFCHAR10
+            private String respNo; //责任人ID OBJ_UDFCHAR12
+            private String respDesc; //责任人描述
+            private String locId; //存放地点ID OBJ_UDFCHAR15
+            private String locDesc; //地点描述
+            private String currencyCode; //货币 OBJ_UDFCHAR30 原币币种
+            private String taxInclusive;// (30)--OBJ_UDFCHKBOX02是否含税
+            private String unitPrice; // (30)--OBJ_VALUE单价
+            private String acceptDate;// (50)--OBJ_COMMISS 启用日期
+            private String locationNote; //--EVT_UDFCHAR11 详细位置备注
+            private String ownerShip; // --EVT_UDFCHAR21 所有权
+            private String newType; // --OBJ_UDFCHAR04 新增类型
+
+
+            private String[] assetCode; //大阿里编号集合 OBJ_CODE
+
+
+———————————————————————————————————————————————————————————
+
+I215获取非通用验收项值
+
+	请求示例：
+		GET：http://100.69.200.73:9090/alieam/api/getChecklists?assetCode=TDN000000000009&receiptNo=10270&corp=ALIO&language=EN
+		参数：assetCode=TDN000000000009    大阿里编号
+			&receiptNo=10270              验收单号
+			&corp=ALIO                    组织
+			&language=EN                  语言
+	    响应：
+	    	{
+		    "flag": "S",
+		    "message": null,
+		    "data": [
+		        {
+		            "serialNo": "100",
+		            "description": "WiredMAC",
+		            "propertyType": null,
+		            "isNeed": "NO",
+		            "checkType": "01",
+		            "checkPointType": null,
+		            "propertyTypeCode": null,
+		            "receiptNo": "10270",
+		            "actNum": "10",
+		            "assetCode": "TDN000000000009",
+		            "checkValue": null,
+		            "remark": "Mac1",
+		            "checked": "-",
+		            "checkedYes": null,
+		            "checkedNo": null,
+		            "checkResult": null,
+		            "workNo": "JZHAO",
+		            "language": null
+		        },
+		        {
+		            "serialNo": "30",
+		            "description": "Serial Number",
+		            "propertyType": null,
+		            "isNeed": "NO",
+		            "checkType": "01",
+		            "checkPointType": null,
+		            "propertyTypeCode": null,
+		            "receiptNo": "10270",
+		            "actNum": "10",
+		            "assetCode": "TDN000000000009",
+		            "checkValue": null,
+		            "remark": "SN13",
+		            "checked": "-",
+		            "checkedYes": null,
+		            "checkedNo": null,
+		            "checkResult": null,
+		            "workNo": "JZHAO",
+		            "language": null
+		        },
+		        {
+		            "serialNo": "110",
+		            "description": "WirelessMAC",
+		            "propertyType": null,
+		            "isNeed": "NO",
+		            "checkType": "01",
+		            "checkPointType": null,
+		            "propertyTypeCode": null,
+		            "receiptNo": "10270",
+		            "actNum": "10",
+		            "assetCode": "TDN000000000009",
+		            "checkValue": null,
+		            "remark": "---2",
+		            "checked": "-",
+		            "checkedYes": null,
+		            "checkedNo": null,
+		            "checkResult": null,
+		            "workNo": "JZHAO",
+		            "language": null
+		        }
+		    ]
+		}
+
+		private String serialNo;// --ack_sequence 序号
+	    private String description;// --验收项目描述
+	    // dbo.r5o7_o7get_desc(lang,'TCLI',ACK_CODE,'','')
+	    private String propertyType;// 属性列字段类型
+	    // dbo.r5o7_o7get_desc(lang,'UOM',ACK_UOM,'','')
+	    private String isNeed;// 是否必填 ACK_REQUIREDTOCLOSE +/-
+	    private String checkType;// ACK_TYPE 验收项目类型
+	    private String checkPointType;// ACK_POINTTYPE 约定值 GENERAL
+	    // 表示该验收项为公用，验收单头部统一填写。
+	    private String propertyTypeCode;// ack_uom
+	    private String receiptNo;//ACK_EVENT 验收单号
+	    private String actNum;//ACK_ACT 验收单活动号
+	    private String assetCode;//ACK_OBJECT 资产编号
+	    private String checkValue;//ACK_VALUE 验收项值
+	    private String remark;//ACK_NOTES 备注
+	    private String checked;//ACK_COMPLETED 已检查
+	    private String checkedYes;//ACK_YES Yes
+	    private String checkedNo;//ACK_NO No
+	    private String checkResult;//ACK_FINDING 验收结果（定性）
+	    private String workNo;//ACK_UPDATEDBY 更新人
+	    private String language;//语言
+
+
+
+——————————————————————————————————————————————————————————————————
+
+I042 验收单提交
+
+	请求示例：
+		GET:http://100.69.200.73:9090/alieam/api/updateReceiptStatus?receiptNo=10071&approvalResult=C
+			response: 
+    	响应：{"flag":"S","message":null}
+    		 {"flag":"E","message":"~11426       - S=O7PREEVT T=PROC N=2 C=0"}
+
+
+——————————————————————————————————————————————————————————————————
+
+I220 验收单删除
+	
+	请求示例
+		GET:http://100.69.200.73:9090/alieam/api/deleteReceipt?receiptNo=10612
+	    响应： {
+			    "flag": "S",
+			    "message": "Success"
+			   }
+			   {
+			    "flag": "E",
+			    "message": "Receipt does not exist"
+			   }
+			   {
+			    "flag": "E",
+			    "message": "Failed to delete"
+			   }
+
+
+——————————————————————————————————————————————————————————————————
+
+查询验收单号列表
+
+	请求示例：
+		GET：http://100.69.200.73:9090/alieam/api/getReceiptList?mark=MANUAL&status=YS10&language=zh&workNo=144959
+		参数： workNo：验收人工号
+		       mark：验收单标识
+		       status：验收单状态
+		       language: 语言
+		响应：{
+    "flag": "S",
+    "message": null,
+    "data": [
+        {
+            "receiptNo": "10583",
+            "receiptDesc": "手动验收2018-08-30"
+        },
+        {
+            "receiptNo": "10603",
+            "receiptDesc": "手动验收2018-08-31"
+        },
+        {
+            "receiptNo": "10586",
+            "receiptDesc": "手动验收2018-08-30"
+        },
+        {
+            "receiptNo": "10606",
+            "receiptDesc": "手动验收2018-08-31"
+        },
+        {
+            "receiptNo": "10600",
+            "receiptDesc": "手动验收2018-08-31"
+        },
+        {
+            "receiptNo": "10609",
+            "receiptDesc": "手动验收2018-08-31"
+        },
+        {
+            "receiptNo": "10649",
+            "receiptDesc": "手动验收2018-09-03"
+        }
+    ]
+}
+————————————————————————————————————————————————
+getAssetCate—根据公司获取资产类目，search 根据描述查询
+GET: http://100.69.200.73:9090/alieam/api/getAssetCate?&corp=ALIO&search=电脑&language=ZH
+result:
+{“flag":"S","message":null,"data":[{"code":"C0101","value":"笔记本电脑-C0101"},{"code":"C0102","value":"台式电脑"},{"code":"S0000258","value":"笔记本电脑"},{"code":"S0000259","value":"台式电脑"},{"code":"S0000263","value":"电脑一体机"},{"code":"S0000264","value":"平板电脑"}]}
+————————————————————————————————————————————————
+getUserDefinedField—获取客户化字段
+fieldType   
+* IntialType --获取新增类型
+* OwnerShip ---获取所有权
+* Usage ---用途
+search 根据描述模糊所有
+GET : http://100.69.200.73:9090/alieam/api/getUserDefinedField?fieldType=IntialType&search=&language=ZH
+result:
+{"flag":"S","message":null,"data":[{"code":"S02","value":"自建"},{"code":"S03","value":"内部公司转入"},{"code":"S04","value":"盘盈"},{"code":"S05","value":"其他"},{"code":"S06","value":"融资租赁"}]}
+————————————————————————————————————————————————
+getLocation 查看存放地点
+GET: http://100.69.200.73:9090/alieam/api/getLocation?corp=ALIO&search=上海&language=ZH
+result:
+{"flag":"S","message":null,"data":[{"code":"862101","value":"上海浦东"},{"code":"862102","value":"上海浦西"}]}
+————————————————————————————————————————————————
+getCurrency —获取币种
+GET: http://100.69.200.73:9090/alieam/api/getCurrency?corp=ALIO&search=W&language=EN
+result:
+{“flag":"S","message":null,"data":[{"code":"AON","value":"Angola New Kwanza"},{"code":"BWP","value":"Botswana Pula"},{"code":"CHF","value":"Swiss Franc"},{"code":"KPW","value":"North Korean Won"},{"code":"KRW","value":"South Korean Won"},{"code":"KWD","value":"Kuwaiti Dinar"},{"code":"MWK","value":"Malawian Kwacha"},{"code":"NOK","value":"Norwegian Krone"},{"code":"NZD","value":"New Zealand Dollar"},{"code":"PEN","value":"Peru New Sol"},{"code":"PGK","value":"Papua New Guinea Kina"},{"code":"PLN","value":"Poland New Zloty"},{"code":"RWF","value":"Rwanda Franc"},{"code":"SEK","value":"Swedish Krona"},{"code":"SZL","value":"Swaziland Lilangeni"},{"code":"TWD","value":"Taiwanese NT Dollar"},{"code":"WST","value":"Western Samoa Tala"},{"code":"YUN","value":"Yugoslavia New Dinar"},{"code":"ZMK","value":"Zambian Kwacha"},{"code":"ZWD","value":"Zimbabwe Dollar"}]}
+————————————————————————————————————————————————
+getBrandsByPart—根据采购类目查看品牌
+GET: http://100.69.200.73:9090/alieam/api/getBrandsByPart?partCode=C0101&language=ZH
+result:
+{“flag":"S","message":null,"data":[{"code":"5312174235451392","value":"苹果（APPLE）"}]}
+————————————————————————————————————————————————
+getModelsByBrand —根据品牌，采购类目查看型号
+GET:http://100.69.200.73:9090/alieam/api/getModelsByBrand?partCode=C0101&brand=5312174235451392&language=ZH
+Result:{"flag":"S","message":null,"data":[{"code":"5312174235844608","value":"Macbook Pro 15\""}]}
+————————————————————————————————————————————————
+
+
+————————————————————————————————————————————————
+————————————————————————————————————————————————
+————————————————————————————————————————————————
+————————————————————————————————————————————————
+————————————————————————————————————————————————
+————————————————————————————————————————————————
+————————————————————————————————————————————————
+————————————————————————————————————————————————
+————————————————————————————————————————————————

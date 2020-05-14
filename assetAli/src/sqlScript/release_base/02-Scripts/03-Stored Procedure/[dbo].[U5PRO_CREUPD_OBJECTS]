@@ -1,0 +1,163 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+
+ALTER PROCEDURE [dbo].[U5PRO_CREUPD_OBJECTS]
+  @assetCode     NVARCHAR(30)
+ ,@locationCode  NVARCHAR(80)
+ ,@model         NVARCHAR(30)
+ ,@partCode      NVARCHAR(30)
+ ,@serialNo      NVARCHAR(30)
+ ,@storeCode     NVARCHAR(30)
+ ,@corp          NVARCHAR(30)
+ ,@brand         NVARCHAR(30)
+ ,@supplierName  NVARCHAR(30)
+ ,@usageNote     NVARCHAR(80)
+ ,@userNo        NVARCHAR(80)
+ ,@depNo         NVARCHAR(80)
+ ,@configChange  NVARCHAR(80)
+ ,@locationNote  NVARCHAR(80)
+ ,@ouCode        NVARCHAR(80)
+ ,@poNumber      NVARCHAR(80)
+ ,@currencyCode  NVARCHAR(30)
+ ,@taxInclusive  NVARCHAR(30)
+ ,@unitPrice     NVARCHAR(30)
+ ,@standardCoin  NVARCHAR(30)
+ ,@withTaxPrice  NVARCHAR(30)
+ ,@noTaxPrice    NVARCHAR(30)
+ ,@taxRate       NVARCHAR(30)
+ ,@calDate       NVARCHAR(30)
+  WITH
+  EXEC AS CALLER
+AS
+DECLARE
+  @ncount      INT
+,  @flag        NVARCHAR(1) = N'S'
+,  @message     NVARCHAR(2000)
+,  @receiptNo   BIGINT;
+
+BEGIN
+  BEGIN TRY
+    IF isnull(
+         @assetCode
+        ,'-') = '-'
+      BEGIN
+        SELECT
+        @flag    = 'E'
+       ,@message = N'大阿里编号为空，创建资产信息'
+      END
+    ELSE
+      SELECT
+      @ncount = count(1)
+      FROM
+      r5objects
+      WHERE
+      obj_code = @assetCode; --AND obj_org = @corp;
+
+    IF @ncount = 1
+      BEGIN
+        SELECT
+        @receiptNo = evt_parent
+        FROM
+        r5events
+        WHERE
+        evt_parent IS NOT NULL AND
+        evt_object = @assetCode;
+
+        UPDATE
+          R5OBJECTS
+        SET
+--          OBJ_LOCATION          = isnull(
+--                                    @LOCATIONCODE
+--                                   ,obj_location)
+--         ,OBJ_LOCATION_ORG      = isnull(
+--                                    @LOCATIONCODE
+--                                   ,obj_location_org)
+         OBJ_UDFCHAR15      = isnull(
+                                    @LOCATIONCODE
+                                   ,OBJ_UDFCHAR15)
+         ,OBJ_MANUFACTMODEL     = isnull(@MODEL,OBJ_MANUFACTMODEL)
+         ,OBJ_PART              = isnull(@PARTCODE,OBJ_PART)
+         ,OBJ_PART_ORG          = '*'
+         ,--           OBJ_SERIALNO=@SERIALNO,
+          OBJ_STORE             = isnull(@STORECODE,OBJ_STORE)
+         ,OBJ_UDFCHAR05         = isnull(
+                                    @BRAND
+                                   ,OBJ_UDFCHAR05)
+         ,OBJ_UDFCHAR06         = isnull(
+                                    @SUPPLIERNAME
+                                   ,OBJ_UDFCHAR06)
+         ,OBJ_UDFCHAR07         = isnull(
+                                    @USAGENOTE
+                                   --,OBJ_UDFCHAR07)
+                                   ,'U01')
+         ,OBJ_UDFCHAR13         = isnull(
+                                    @USERNO
+                                   ,OBJ_UDFCHAR13)
+         ,OBJ_UDFCHAR14         = isnull(
+                                    @DEPNO
+                                   ,OBJ_UDFCHAR14)
+         ,OBJ_UDFCHAR16         = isnull(
+                                    @CONFIGCHANGE
+                                   ,OBJ_UDFCHAR16)
+         ,OBJ_UDFCHAR27         = isnull(
+                                    @LOCATIONNOTE
+                                   ,OBJ_UDFCHAR27)
+         ,OBJ_UDFCHAR03         = isnull(
+                                    @ouCode
+                                   ,OBJ_UDFCHAR03)
+         ,OBJ_UDFCHAR10         = isnull(
+                                    @poNumber
+                                   ,OBJ_UDFCHAR10)
+         ,OBJ_UDFCHAR30         = isnull(
+                                    @currencyCode
+                                   ,OBJ_UDFCHAR30)
+         ,OBJ_UDFCHKBOX02         = isnull(
+                                    @taxInclusive
+                                   ,OBJ_UDFCHKBOX02)
+         ,OBJ_VALUE         = isnull(
+                                    @unitPrice
+                                   ,OBJ_VALUE)
+         ,OBJ_UDFCHAR35         = isnull(
+                                    @standardCoin
+                                   ,OBJ_UDFCHAR35)
+         ,OBJ_UDFCHAR36         = isnull(
+                                    @withTaxPrice
+                                   ,OBJ_UDFCHAR36)
+         ,OBJ_UDFCHAR37         = isnull(
+                                    @noTaxPrice
+                                   ,OBJ_UDFCHAR37)
+         ,OBJ_UDFCHAR38         = isnull(
+                                    @taxRate
+                                   ,OBJ_UDFCHAR38)
+         ,OBJ_UDFCHAR39         = isnull(
+                                    @calDate
+                                   ,OBJ_UDFCHAR39)
+                                   
+                                   
+        WHERE
+          OBJ_CODE = @ASSETCODE AND
+          OBJ_ORG = @CORP;
+      END
+    ELSE
+      SELECT
+      @flag    = 'E'
+     ,@message = N'大阿里编号不存在'
+  END TRY
+  BEGIN CATCH
+    SELECT
+    @flag    = 'E'
+   ,@message = error_message()
+  END CATCH
+
+  SELECT
+    @flag AS flag
+   ,@message AS message
+   ,@assetCode AS param2
+   ,@receiptNo AS receiptNo
+END;
+
+GO

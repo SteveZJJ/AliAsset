@@ -1,0 +1,136 @@
+USE [EAM];
+GO
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER ON;
+GO
+ALTER TRIGGER [dbo].[U5POSINS_TRL_CONFIRMATION]
+   ON [dbo].[R5TRANSLINES]
+   FOR INSERT
+   NOT FOR REPLICATION
+/*****
+Create By Jason 20180906
+for  double confirmation
+**********/
+
+AS
+DECLARE @sSysUser   NVARCHAR (38)
+DECLARE @sTrans   NVARCHAR (30)
+DECLARE @sType   NVARCHAR (4)
+DECLARE @sRtype   NVARCHAR (4)
+DECLARE @sEvent   NVARCHAR (30)
+
+DECLARE @sTraRstatus   NVARCHAR (4)
+DECLARE @sTraRtype   NVARCHAR (4)
+DECLARE @sTraFromrentity   NVARCHAR (4)
+DECLARE @sTraTorentity   NVARCHAR (4)
+DECLARE @sTraFromcode   NVARCHAR (30)
+DECLARE @sTraTocode   NVARCHAR (30)
+DECLARE @sTraPers   NVARCHAR (15)
+DECLARE @sTraAuth   NVARCHAR (15)
+DECLARE @nCount   INT
+DECLARE @sEventRstatus   NVARCHAR (4)
+DECLARE @sEventRtype   NVARCHAR (4)
+DECLARE @sJobtype   NVARCHAR (8)
+DECLARE @sParentEvent   NVARCHAR (30)
+DECLARE @sEventOut   NVARCHAR (30)
+DECLARE @sEventOrg   NVARCHAR (15)
+DECLARE @sEventUdf01   NVARCHAR (80)
+DECLARE @evt_owner   NVARCHAR (30)
+DECLARE @sEventType   NVARCHAR (80)
+DECLARE @dEventInterface   DATETIME
+
+IF @@ROWCOUNT > 0
+   BEGIN
+      SET  NOCOUNT ON
+
+      DECLARE
+         c_inserted CURSOR LOCAL FOR
+            SELECT TRL_TRANS, TRL_TYPE, TRL_RTYPE, isnull(trl_event,TRL_udfchar01) FROM inserted
+            WHERE TRL_QTY>0
+
+      SET @sSysUser = dbo.O7GTSUSR ()
+
+      IF @sSysUser <> N'SYS'
+         BEGIN
+            OPEN c_inserted
+            FETCH NEXT FROM c_inserted
+                 INTO @sTrans,
+                      @sType,
+                      @sRtype,
+                      @sEvent
+
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+               -- Fetch transaction header information
+               SELECT @sTraRstatus = tra_rstatus,
+                      @sTraRtype = tra_rtype,
+                      @sTraFromrentity = tra_fromrentity,
+                      @sTraTorentity = tra_torentity,
+                      @sTraFromcode = tra_fromcode,
+                      @sTraTocode = tra_tocode,
+                      @sTraPers = tra_pers,
+                      @sTraAuth = tra_auth
+               FROM r5transactions
+               WHERE tra_code = @sTrans
+
+               BEGIN
+                  IF     @sTraRstatus = N'A'
+                     AND @sRtype = N'I'
+                     AND @sTraFromrentity = N'STOR'
+                   
+                     BEGIN
+                        SELECT @ncount = count (1)
+                        FROM U5DOUBLECONFIRMATION
+                        WHERE dcf_event = @sEvent AND DCF_TRANS = @sTrans
+
+                        IF @ncount = 0
+                           SELECT @sEventUdf01 = evt_udfchar01,
+                                  @sEventType =
+                                     CASE evt_jobtype
+                                        WHEN '20RZ' THEN 'Obtain'        ---入职
+                                        WHEN '40LY' THEN 'Borrow'        ---领用
+                                        WHEN 'IS' THEN 'Direct'          ---直接发放
+                                        ELSE 'Public'
+                                     END,
+                                  @evt_owner =
+                                     CASE evt_jobtype
+                                        WHEN '20RZ' THEN evt_origin
+                                        WHEN '40LY' THEN evt_udfchar05
+                                        WHEN 'IS' THEN @sTraPers
+                                        ELSE evt_origin
+                                     END
+                             FROM R5EVENTS
+                            WHERE evt_code = @sEvent
+
+                        INSERT INTO U5DOUBLECONFIRMATION (DCF_EVENT,
+                                                          DCF_TRANS,
+                                                          DCF_AMPCODE,
+                                                          DCF_STATUS,
+                                                          DCF_NOTIFYDATE,
+                                                          DCF_OPERATOR,
+                                                          DCF_OWNERNO,
+                                                          DCF_CONFIRMTYPE)
+                        VALUES (@sEvent,
+                                @sTrans,
+                                isnull(@sEventUdf01,'-'),
+                                N'TC',                                --默认初始状态
+                                getdate (),
+                                @sTraAuth,
+                                @evt_owner,
+                                @sEventType)
+                     END
+
+                  FETCH NEXT FROM c_inserted
+                       INTO @sTrans,
+                            @sType,
+                            @sRtype,
+                            @sEvent
+               END
+
+               CLOSE c_inserted
+               DEALLOCATE c_inserted
+            END
+         END
+   END
+GO

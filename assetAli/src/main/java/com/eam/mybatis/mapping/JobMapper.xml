@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.eam.mybatis.dao.JobMapper">
+    <select id="getSendMailLists" resultType="com.eam.mybatis.model.R5MailEvents">
+        select a.*, ISNULL(b.mer_rulecode,'Other') mer_rulecode
+        from r5mailevents a,U5MAILEVENTRULE b
+        where a.mae_sqlidentity = b.mer_evtsqlid
+          and a.mae_send = '-'
+          and a.mae_updatecount &lt; 12
+    </select>
+    <select id="getMailTemplateByCode" parameterType="String" resultType="com.eam.mybatis.model.R5MailTemplate">
+        select *
+        from r5mailtemplate
+        where mat_code = #{mae_template}
+    </select>
+    <update id="sendMailSuccess" parameterType="map">
+        update r5mailevents
+        set mae_send    = '+',
+            mae_rstatus = 'S',
+            mae_error   = #{message}
+        where mae_code = #{maeCode}
+    </update>
+    <update id="sendMailFailed" parameterType="map">
+        update r5mailevents
+        set mae_rstatus = 'E',
+            mae_error   = #{message}
+        where mae_code = #{maeCode}
+    </update>
+    <update id="resetAllErrorMail" parameterType="map">
+        update r5mailevents
+        set mae_send = '+'
+        where mae_send = '-'
+          and mae_updatecount &gt;= 5
+          and mae_rstatus = 'N'
+    </update>
+
+
+    <select id="getWorkFlowList" resultType="com.eam.mybatis.model.TodoWorkFlow">
+        SELECT DCF_EVENT       eamTaskId,
+               DCF_TRANS       eamTransactionId,
+               DCF_AMPCODE     requestId,
+               DCF_STATUS      confirmStatus,
+               DCF_NOTIFYDATE  transDate,
+               DCF_CONFIRMDATE confirmDate,
+               DCF_OPERATOR  operator,
+               DCF_OWNERNO     ownerNo,
+               DCF_CONFIRMTYPE confirmationType,
+               INT_TRANSID     transId
+
+        FROM U5DOUBLECONFIRMATION,
+             R5INTERFACE
+        WHERE INT_TABLE = 'U5DOUBLECONFIRMATION'
+          AND (INT_STATUS IS NULL
+                   OR (INT_STATUS = 'E' AND INT_RETRIES &lt;=2)
+                      )
+          and int_keyfld1 = DCF_SQLIDENTITY
+
+    </select>
+
+
+    <update id="interfaceSuccess" parameterType="map">
+        exec r5interface_intcomp  #{transId}
+    </update>
+    <update id="interfaceError" parameterType="map">
+        exec r5interface_interr  #{transId}, '', '', '', '', '', '', #{errorMsg}
+    </update>
+    <select id="getAssetStatusChangeList" resultType="com.eam.mybatis.model.U5AssetStatusChange">
+        select INT_TRANSID   TRANSID,
+                OMH_OBJECT    ASSETCODE,
+                OMH_CRESPNO   currentWorkNo,
+                OMH_URESPNO   updateWorkNo,
+                OMH_CDEPNO    currentDepmentId,
+                OMH_UDEPNO    updateDepmentId,
+                OMH_COBJST    currentStatus,
+                OMH_UOBJST    updateStatus,
+                OMH_CLOC      currentLocationCode,
+                OMH_ULOC      updateLocationCode,
+                OMH_OPERATOR  updateBy,
+                OMH_MODIFYDATE    updateDate,
+                OMH_CORP      corp,
+                OMH_OUCODE    ouCode,
+                OMH_MODEL     model,
+                OMH_FACATECODE    faCateCode,
+                OMH_OBJDESC   objDesc,
+                OMH_CURRCODE  currCode,
+                OMH_OBJVALUE  objValue,
+                OMH_ESTIMONTH estiMonth,
+                OMH_FIXEDASSETCODE fixedAssetCode
+
+        from r5interface,U5OBJECTMDFHISTORY
+        where INT_TABLE = N'U5OBJECTMDFHISTORY'
+          AND (INT_STATUS IS NULL
+                   OR (INT_STATUS = 'E' AND INT_RETRIES &lt;=2)
+                      )
+          and int_keyfld1 = OMH_CODE
+
+    </select>
+    <select id="getReceiptStatusList"  resultType="String">
+        SELECT RSR_EVTCODE FROM U5RECEIPTSTATUSRECORD WHERE RSR_STATUS = 'N'
+    </select>
+    <update id="sendReceiptStatusSuccess" parameterType="String">
+        UPDATE U5RECEIPTSTATUSRECORD SET RSR_STATUS = 'S' WHERE RSR_EVTCODE = #{receiptNo}
+    </update>
+    <update id="sendReceiptStatusError" parameterType="map">
+        UPDATE U5RECEIPTSTATUSRECORD SET RSR_STATUS = 'E', RSR_MESSAGE = #{errorMsg} WHERE RSR_EVTCODE = #{receiptNo}
+    </update>
+
+    <select id="getDelaySyncFAList" resultType="com.eam.mybatis.model.CreateSyncFA">
+        SELECT DSF_OBJCODE AS assetCode,
+               DSF_RECEIPT AS receiptNo,
+               DSF_SYNCDATE AS SyncTime,
+               DSF_CORP AS corp,
+               DSF_SQLIDENTITY AS sqlIdentity,
+               EVT_UDFCHAR23 AS auditResult,
+               EVT_UDFCHAR24 AS rcvLineId,
+               EVT_UDFCHAR25 AS rcvNumber,
+               EVT_UDFNUM02 AS personId,
+               EVT_UDFNUM03 AS expenseCcid,
+               '+' as ifDelay,
+               EVT_UDFCHAR02 AS acceptanceLineID,
+               EVT_UDFCHAR22 AS acceptanceLineLineID,
+               EVT_UDFCHAR10 AS PONumber,
+               EVT_UDFCHAR11 AS DONumber
+          FROM U5DELAYSYNCFA
+               LEFT JOIN R5EVENTS
+                  ON dbo.U5DELAYSYNCFA.DSF_RECEIPT = dbo.R5EVENTS.EVT_CODE
+         WHERE DSF_STATUS = 'N' AND DSF_RETRIES = 0
+
+    </select>
+    <update id="sendDelaySyncFASuccess" parameterType="String">
+        UPDATE U5DELAYSYNCFA SET DSF_STATUS = 'S', DSF_RETRIES = DSF_RETRIES + 1 WHERE DSF_SQLIDENTITY = #{sqlIdentity}
+    </update>
+    <update id="sendDelaySyncFAError" parameterType="map">
+        UPDATE U5DELAYSYNCFA SET DSF_STATUS = 'E', DSF_MESSAGE = #{errorMsg}, DSF_RETRIES = DSF_RETRIES + 1 WHERE DSF_SQLIDENTITY = #{sqlIdentity}
+    </update>
+</mapper>

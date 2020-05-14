@@ -1,0 +1,318 @@
+1. 创建资产及资产属性接口：
+
+http://100.69.200.73:9090/alieam/api/createAssetReceiptManual_New
+
+	POST入参：{"corp":"ALIO","ouCode":"A02","quantity":"1000","assetCategory":"S0000258","language":"zh","workNo":"144959"}
+	返回参数：   {
+				    "flag": "S",
+				    "message": null,
+				    "data": {
+				        "corp": null,
+				        "receiptNo": "235220"
+				    }
+				}
+
+2.获取资产验收属性
+
+http://100.69.200.73:9090/alieam/api/getAssetPropertyValues?receiptNo=204974&mark=single
+
+	入参：
+		receiptNo：验收单号
+		mark： 标识。当为single时，获取该类目的验收属性。当不为single时，获取该验收单下所有资产的验收属性值。
+		
+	返回参数：
+			{
+			    "flag": "S",
+			    "message": null,
+			    "data": {
+			        "propertyValuesList": [
+			            {
+			                "objCode": null,
+			                "corp": null,
+			                "propertyList": [
+			                    {
+			                        "prv_property": "KEYBOARD",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "键盘",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "CPU",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "cpu",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "HDISK",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "硬盘",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "LANADPT",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "有线网卡",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "L-MAC",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "有线MAC-1",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "MEMORY",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "内存",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "DISPCARD",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "显卡",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "WIFIADPT",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "无线网卡",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "W-MAC",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "无线MAC",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    },
+			                    {
+			                        "prv_property": "TOUCHPAD",
+			                        "prv_rentity": null,
+			                        "prv_class": "2010000",
+			                        "prv_code": null,
+			                        "prv_desc": "触摸板",
+			                        "prv_value": null,
+			                        "prv_nvalue": null,
+			                        "prv_dvalue": null,
+			                        "prv_class_org": null,
+			                        "prv_updatecount": null,
+			                        "prv_created": null,
+			                        "prv_updated": null,
+			                        "obj_code": null
+			                    }
+			                ],
+			                "receiptNo": "235535"
+			            }
+			        ]
+			    }
+			}
+
+		实体类：
+			public class R5PropertyValues {
+				private String prv_property;
+				private String prv_rentity;
+				private String prv_class;
+				private String prv_code;
+				private String prv_desc;
+				private String prv_value;
+				private String prv_nvalue;
+				private String prv_dvalue;
+				private String prv_class_org;
+				private String prv_updatecount;
+				private String prv_created;
+				private String prv_updated;
+				private String obj_code;
+			}
+
+
+
+
+3. 根据验收单获取预生成大阿里编号List
+
+http://localhost:9090/alieam/api/getTDNCodeList?receiptNo=204974
+
+{
+    "flag": "S",
+    "message": null,
+    "data": {
+        "TDNCodeList": [
+            "TDN000000306029",
+            "TDN000000306030",
+            "TDN000000306031",
+            "TDN000000306032",
+            "TDN000000306033",
+            "TDN000000306034",
+            "TDN000000306035",
+            "TDN000000306036",
+            "TDN000000306037",
+            "TDN000000306038"
+        ]
+    }
+}
+
+4. 根据验收单号生成资产接口
+
+http://localhost:9090/alieam/api/createManualRecvLine?receiptNo=235246&language=ZH
+
+	返回参数：
+			{
+			    "flag": "S",
+			    "message": null,
+			    "data": {
+			        "receiptNo": "235246",
+			        "language": "ZH"
+			    }
+			}
+
+5. 生成或更新资产属性 （包含唯一性校验）
+
+http://localhost:9090/alieam/api/setAssetPropertyValues
+
+	入参Json：
+		{
+			"propertyValuesList":[
+				{
+					"prv_property": "KEYBOARD",
+		            "prv_class": "2010000",
+		            "prv_desc": "键盘",
+		            "prv_value": "键盘123123",
+		            "obj_code": "TDN000000306090"
+				}],
+			"receiptNo":"235535",
+			"corp":"ALIO",
+			"language":"ZH"
+		}
+
+	实体类：
+		public class R5PropertyValuesList {
+
+		    private List<R5PropertyValues> propertyValuesList;
+		    private String receiptNo;
+		    private String corp;
+		    private String language;
+
+		}
+
+6. 获取校验有问题的资产属性
+	
+http://localhost:9090/alieam/api/getErrorProperty?receiptNo=235535
+
+	返回参数：
+		{
+		    "flag": "S",
+		    "message": null,
+		    "data": {
+		        "propertyResultList": {
+		            "propertyResultList": [
+		                {
+		                    "prv_property": "L-MAC",
+		                    "prv_code": "TDN000000306094#ALIO",
+		                    "prv_desc": null,
+		                    "prv_value": "test123",
+		                    "obj_code": "TDN000000306094",
+		                    "pvp_result": "D",
+		                    "pvp_message": "Asset TDN000000306094 Property 有线MAC-1 is duplicate with Asset TDN000000306095 Property 有线MAC-1!"
+		                }
+		            ],
+		            "receiptNo": "235535"
+		        }
+		    }
+		}
+
+	实体类：
+		public class U5PropertyResult {
+			private String prv_property;
+			private String prv_code;
+			private String prv_desc;
+			private String prv_value;
+
+
+			private String obj_code;
+			private String pvp_result;
+			private String pvp_message;
+		}
+
+		public class U5PropertyResultList {
+			private List<U5PropertyResult> propertyResultList;
+			private String receiptNo;
+		}
